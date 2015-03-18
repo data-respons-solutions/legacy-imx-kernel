@@ -30,6 +30,7 @@
 #include <linux/mmc/host.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/brcmfmac-sdio.h>
+#include <linux/pm_runtime.h>
 #include <linux/suspend.h>
 #include <linux/errno.h>
 #include <linux/module.h>
@@ -883,6 +884,7 @@ static int brcmf_sdiod_remove(struct brcmf_sdio_dev *sdiodev)
 
 	sdiodev->sbwad = 0;
 
+	pm_runtime_allow(sdiodev->func[1]->card->host->parent);
 	return 0;
 }
 
@@ -942,7 +944,7 @@ static int brcmf_sdiod_probe(struct brcmf_sdio_dev *sdiodev)
 		ret = -ENODEV;
 		goto out;
 	}
-
+	pm_runtime_forbid(host->parent);
 out:
 	if (ret)
 		brcmf_sdiod_remove(sdiodev);
