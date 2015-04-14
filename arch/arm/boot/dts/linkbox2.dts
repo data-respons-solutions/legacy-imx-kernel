@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "imx6dl.dtsi"
+#include "linkbox2-common.dtsi"
+
+/ {
+	model = "Laerdal Medical LINKBOX PLUS)";
+	compatible = "datarespons,laerdal2";
+};
+
