@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "imx6dl.dtsi"
+#include "simpad2-common.dtsi"
+
+/ {
+	model = "Laerdal Medical SIMPAD2)";
+	compatible = "datarespons,laerdal2";
+};
+
