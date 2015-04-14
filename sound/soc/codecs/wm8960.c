@@ -17,6 +17,8 @@
 #include <linux/pm.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
+#include <linux/pm_runtime.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -556,7 +558,7 @@ static struct {
 	{ 22050, 2 },
 	{ 24000, 2 },
 	{ 16000, 3 },
-	{ 11250, 4 },
+	{ 11025, 4 },
 	{ 12000, 4 },
 	{  8000, 5 },
 };
@@ -880,20 +882,20 @@ static int wm8960_set_dai_clkdiv(struct snd_soc_dai *codec_dai,
 
 	switch (div_id) {
 	case WM8960_SYSCLKDIV:
-		reg = snd_soc_read(codec, WM8960_CLOCK1) & 0x1f9;
-		snd_soc_write(codec, WM8960_CLOCK1, reg | div);
+		snd_soc_update_bits(codec, WM8960_CLOCK1, 0x6, div << 1);
 		break;
 	case WM8960_DACDIV:
-		reg = snd_soc_read(codec, WM8960_CLOCK1) & 0x1c7;
-		snd_soc_write(codec, WM8960_CLOCK1, reg | div);
+		snd_soc_update_bits(codec, WM8960_CLOCK1, 0x1f8, (div << 3) | (div << 6));
 		break;
 	case WM8960_OPCLKDIV:
 		reg = snd_soc_read(codec, WM8960_PLL1) & 0x03f;
 		snd_soc_write(codec, WM8960_PLL1, reg | div);
 		break;
 	case WM8960_DCLKDIV:
-		reg = snd_soc_read(codec, WM8960_CLOCK2) & 0x03f;
-		snd_soc_write(codec, WM8960_CLOCK2, reg | div);
+		reg = snd_soc_update_bits(codec, WM8960_CLOCK2, 0x1c0, div << 6);
+		break;
+	case WM8960_BCLKDIV:
+		reg = snd_soc_update_bits(codec, WM8960_CLOCK2, 0xf, div);
 		break;
 	case WM8960_TOCLKSEL:
 		reg = snd_soc_read(codec, WM8960_ADDCTL1) & 0x1fd;
@@ -946,16 +948,42 @@ static struct snd_soc_dai_driver wm8960_dai = {
 	.symmetric_rates = 1,
 };
 
+
+#ifdef CONFIG_PM_RUNTIME
+static int wm8960_suspend(struct device *dev)
+{
+	struct wm8960_priv *wm8960 = dev_get_drvdata(dev);
+
+	//wm8960->set_bias_level(codec, SND_SOC_BIAS_OFF);
+	if (wm8960->pdata.codec_mclk)
+		clk_disable(wm8960->pdata.codec_mclk);
+	return 0;
+}
+
+static int wm8960_resume(struct device *dev)
+{
+	struct wm8960_priv *wm8960 = dev_get_drvdata(dev);
+	if (wm8960->pdata.codec_mclk)
+		clk_enable(wm8960->pdata.codec_mclk);
+	//wm8960->set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+	return 0;
+}
+#endif
+
 static int wm8960_probe(struct snd_soc_codec *codec)
 {
 	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
 	struct wm8960_data *pdata = &wm8960->pdata;
 	int ret;
+	dev_info(codec->dev, "%s:\n", __func__);
+	wm8960->set_bias_level = wm8960_set_bias_level_out3;
 
-	if (pdata->capless)
-		wm8960->set_bias_level = wm8960_set_bias_level_capless;
-	else
-		wm8960->set_bias_level = wm8960_set_bias_level_out3;
+	if (!pdata) {
+		dev_warn(codec->dev, "No platform data supplied\n");
+	} else {
+		if (pdata->capless)
+			wm8960->set_bias_level = wm8960_set_bias_level_capless;
+	}
 
 	ret = snd_soc_codec_set_cache_io(codec, 7, 9, SND_SOC_REGMAP);
 	if (ret < 0) {
@@ -970,10 +998,21 @@ static int wm8960_probe(struct snd_soc_codec *codec)
 	return 0;
 }
 
+/* power down chip */
+static int wm8960_remove(struct snd_soc_codec *codec)
+{
+	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
+
+	wm8960->set_bias_level(codec, SND_SOC_BIAS_OFF);
+	if (wm8960->pdata.codec_mclk)
+		clk_unprepare(wm8960->pdata.codec_mclk);
+	return 0;
+}
+
 static struct snd_soc_codec_driver soc_codec_dev_wm8960 = {
 	.probe =	wm8960_probe,
+	.remove =   wm8960_remove,
 	.set_bias_level = wm8960_set_bias_level,
-	.idle_bias_off = true,
 };
 
 static const struct regmap_config wm8960_regmap = {
@@ -988,16 +1027,19 @@ static const struct regmap_config wm8960_regmap = {
 	.volatile_reg = wm8960_volatile,
 };
 
-static void wm8960_set_pdata_from_of(struct i2c_client *i2c,
-				struct wm8960_data *pdata)
+static int wm8960_get_pdata_of(struct i2c_client *i2c, struct wm8960_data *pdata)
 {
 	const struct device_node *np = i2c->dev.of_node;
-
-	if (of_property_read_bool(np, "wlf,capless"))
-		pdata->capless = true;
-
-	if (of_property_read_bool(np, "wlf,shared-lrclk"))
-		pdata->shared_lrclk = true;
+	pdata->shared_lrclk = of_property_read_bool(np, "shared-lrclk");
+	pdata->capless = of_property_read_bool(np, "capless");
+	pdata->codec_mclk = devm_clk_get(&i2c->dev, NULL);
+	if (IS_ERR(pdata->codec_mclk)) {
+		dev_warn(&i2c->dev, "Can not get MCLK\n");
+		pdata->codec_mclk = NULL;
+	}
+	else
+		dev_info(&i2c->dev, "MCLK is %ld\n", clk_get_rate(pdata->codec_mclk));
+	return 0;
 }
 
 static int wm8960_i2c_probe(struct i2c_client *i2c,
@@ -1016,10 +1058,10 @@ static int wm8960_i2c_probe(struct i2c_client *i2c,
 	if (IS_ERR(wm8960->regmap))
 		return PTR_ERR(wm8960->regmap);
 
-	if (pdata)
-		memcpy(&wm8960->pdata, pdata, sizeof(struct wm8960_data));
-	else if (i2c->dev.of_node)
-		wm8960_set_pdata_from_of(i2c, &wm8960->pdata);
+	if (!pdata)
+		wm8960_get_pdata_of(i2c, &wm8960->pdata);
+	else
+		wm8960->pdata = *pdata;
 
 	ret = wm8960_reset(wm8960->regmap);
 	if (ret != 0) {
@@ -1050,6 +1092,12 @@ static int wm8960_i2c_probe(struct i2c_client *i2c,
 	regmap_update_bits(wm8960->regmap, WM8960_ROUT2, 0x100, 0x100);
 
 	i2c_set_clientdata(i2c, wm8960);
+	if (wm8960->pdata.codec_mclk)
+		clk_prepare(wm8960->pdata.codec_mclk);
+
+
+	pm_runtime_enable(&i2c->dev);
+	pm_request_idle(&i2c->dev);
 
 	ret = snd_soc_register_codec(&i2c->dev,
 			&soc_codec_dev_wm8960, &wm8960_dai, 1);
@@ -1059,6 +1107,9 @@ static int wm8960_i2c_probe(struct i2c_client *i2c,
 
 static int wm8960_i2c_remove(struct i2c_client *client)
 {
+	struct wm8960_priv *wm8960 = dev_get_drvdata(&client->dev);
+	if (wm8960->pdata.codec_mclk)
+		clk_unprepare(wm8960->pdata.codec_mclk);
 	snd_soc_unregister_codec(&client->dev);
 	return 0;
 }
@@ -1070,16 +1121,22 @@ static const struct i2c_device_id wm8960_i2c_id[] = {
 MODULE_DEVICE_TABLE(i2c, wm8960_i2c_id);
 
 static const struct of_device_id wm8960_of_match[] = {
-       { .compatible = "wlf,wm8960", },
-       { }
+	{ .compatible = "wlf,wm8960", },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, wm8960_of_match);
+
+
+static struct dev_pm_ops wm8960_pm = {
+	SET_RUNTIME_PM_OPS(wm8960_suspend, wm8960_resume, NULL)
+};
 
 static struct i2c_driver wm8960_i2c_driver = {
 	.driver = {
 		.name = "wm8960",
 		.owner = THIS_MODULE,
 		.of_match_table = wm8960_of_match,
+		.pm = &wm8960_pm,
 	},
 	.probe =    wm8960_i2c_probe,
 	.remove =   wm8960_i2c_remove,
