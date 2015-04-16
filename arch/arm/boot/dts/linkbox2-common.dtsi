@@ -67,7 +67,8 @@
 			startup-delay-us = <300>;
 			regulator-always-on;
 		};
-		
+
+/*	
 		reg_bt_en: bt_enable {
 			compatible = "regulator-fixed";
 			regulator-name = "reg_bt_enable";
@@ -79,7 +80,7 @@
 			startup-delay-us = <300>;
 			regulator-always-on;
 		};
-		
+*/	
 		reg_usb_h1_vbus: usb_h1_vbus {
 			compatible = "regulator-fixed";
 			regulator-name = "usb_h1_vbus";
@@ -102,6 +103,13 @@
 	};
 	
 	user-gpios {
+	
+		gpio-bt-enable {
+			gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <1>;
+		};
+		
 		gpio-spinor-wp {
 			gpios = <&gpio3 20 GPIO_ACTIVE_HIGH>;
 			status = "okay";
@@ -132,11 +140,6 @@
 			value = <1>;
 		};
 		
-		gpio-speaker-sd {
-			gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <0>;
-		};
 		
 		gpio-adapter-det {
 			gpios = <&gpio4 5 GPIO_ACTIVE_LOW>;
@@ -156,12 +159,6 @@
 		gpio-ddr-setting {
 			gpios = <&gpio3 31 GPIO_ACTIVE_HIGH>;
 			status = "okay";
-		};
-		
-		gpio-ac5w-sd {
-			gpios = <&gpio4 25 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <0>;
 		};
 		
 		gpio-mcu-rst {
@@ -285,6 +282,7 @@
 		model = "pcm1681";
 		cpu-dai = <&esai>;
 		audio-codec = <&codec_pcm1681>;
+		amp-shutdown-gpios = <&gpio4 25 GPIO_ACTIVE_LOW &gpio1 5 GPIO_ACTIVE_HIGH>;
 		audio-routing = 
 			"OUT1", "VOUT1",
 			"OUT2", "VOUT2",
@@ -539,14 +537,14 @@
 				MX6QDL_PAD_GPIO_5__GPIO1_IO05		0x80000000		/* SPK_SD_N */
 				MX6QDL_PAD_GPIO_9__GPIO1_IO09		0x0001b000		/* HP_DET, pullup */
 				MX6QDL_PAD_GPIO_19__GPIO4_IO05		0x80000000		/* DC_IN_nFLG (adapter detect) */
-				MX6QDL_PAD_NANDF_CLE__GPIO6_IO07	0x80000000		/* GP--BT_HOST_WAKE */
+				MX6QDL_PAD_NANDF_CLE__GPIO6_IO07	0x1b0b1			/* GP--BT_HOST_WAKE */
 				MX6QDL_PAD_NANDF_CS0__GPIO6_IO11	0x80000000		/* GP--WL_VDDIO_EN */
 				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x80000000		/* GP--BT_WAKE */
 				MX6QDL_PAD_NANDF_RB0__GPIO6_IO10	0x0001b000		/* PMIC_INT_B */
 				MX6QDL_PAD_NANDF_D3__GPIO2_IO03		0x80000000		/* WL_REG_ON (WiFI power) */
 				MX6QDL_PAD_NANDF_D4__GPIO2_IO04		0x80000000		/* BT_REG_ON (Bluetooth power) */
 				MX6QDL_PAD_NANDF_D5__GPIO2_IO05		0x0001b000		/* WL_IRQ (WiFI interrupt */
-				MX6QDL_PAD_NANDF_D6__GPIO2_IO06		0x80000000		/* GP--WL_HOST_WAKE */
+				MX6QDL_PAD_NANDF_D6__GPIO2_IO06		0x1b0b1			/* GP--WL_HOST_WAKE */
 				MX6QDL_PAD_NANDF_D7__GPIO2_IO07		0x80000000		/* GP--WL_DEV_WAKE */
 				MX6QDL_PAD_EIM_A25__GPIO5_IO02		0x0001b000		/* Recovery_setting (control boot) */
 				MX6QDL_PAD_EIM_D20__GPIO3_IO20		0x80000000		/* GP--nWP--flash (SPI flash WP) */
@@ -822,7 +820,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart5_linkbox2>;
 	fsl,uart-has-rtscts;
-	/* fsl,dte-mode; */
 	status = "okay";
 };
 

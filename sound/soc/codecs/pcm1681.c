@@ -115,17 +115,17 @@ static int pcm1681_set_deemph(struct snd_soc_codec *codec)
 				val = i;
 
 	if (val != -1) {
-		snd_soc_update_bits(codec, PCM1681_DEEMPH_CONTROL,
+		regmap_update_bits(priv->regmap, PCM1681_DEEMPH_CONTROL,
 					PCM1681_DEEMPH_RATE_MASK, val);
 		enable = 1;
 	} else
 		enable = 0;
 
 	/* enable/disable deemphasis functionality */
-	ret = snd_soc_update_bits(codec, PCM1681_DEEMPH_CONTROL,
+	ret = regmap_update_bits(priv->regmap, PCM1681_DEEMPH_CONTROL,
 					PCM1681_DEEMPH_MASK, enable);
 	if (ret)
-		dev_err(codec->dev, "%s: snd_soc_update_bits retured %d\n", __func__, ret);
+		dev_err(codec->dev, "%s: regmap_update_bits retured %d\n", __func__, ret);
 	return ret;
 }
 
@@ -179,7 +179,7 @@ static int pcm1681_digital_mute(struct snd_soc_dai *dai, int mute)
 	else
 		val = 0;
 
-	return snd_soc_write(codec, PCM1681_SOFT_MUTE, val);
+	return regmap_write(priv->regmap, PCM1681_SOFT_MUTE, val);
 }
 
 static int pcm1681_hw_params(struct snd_pcm_substream *substream,
@@ -227,12 +227,13 @@ static int pcm1681_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
-	ret = snd_soc_update_bits(codec, PCM1681_FMT_CONTROL, 0x0f, val);
+	ret = regmap_update_bits(priv->regmap, PCM1681_FMT_CONTROL, 0x0f, val);
 	if (ret < 0) {
-		dev_err(codec->dev, "%s: snd_soc_update_bits retured %d\n", __func__, ret);
+		dev_err(codec->dev, "%s: regmap_update_bits retured %d\n", __func__, ret);
 		return ret;
 	}
-
+	if (regmap_write(priv->regmap, PCM1681_DAC_CONTROL, 0x00))
+		dev_err(codec->dev, "%s: regmap_write retured %d\n", __func__, ret);
 	return pcm1681_set_deemph(codec);
 }
 
@@ -298,12 +299,9 @@ static struct snd_soc_dai_driver pcm1681_dai = {
 
 static int pcm1681_probe(struct snd_soc_codec *codec)
 {
-	int ret = snd_soc_codec_set_cache_io(codec, 5, 8, SND_SOC_REGMAP);
-	if (ret < 0) {
-		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
-		return ret;
-	}
-
+	struct pcm1681_private *priv = snd_soc_codec_get_drvdata(codec);
+	if (regmap_write(priv->regmap, PCM1681_DAC_CONTROL, 0xff))
+		dev_err(codec->dev, "%s: failed to turn off DACs\n", __func__);
 	return 0;
 }
 

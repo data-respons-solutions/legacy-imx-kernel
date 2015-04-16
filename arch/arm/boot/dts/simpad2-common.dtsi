@@ -67,7 +67,7 @@
 			startup-delay-us = <300>;
 			regulator-always-on;
 		};
-		
+/*		
 		reg_bt_en: bt_enable {
 			compatible = "regulator-fixed";
 			regulator-name = "reg_bt_enable";
@@ -78,7 +78,7 @@
 			vin-supply = <&reg_wifi_io>;
 			startup-delay-us = <300>;
 		};
-		
+*/	
 		reg_usb_otg_vbus: usb_otg_vbus {
 			compatible = "regulator-fixed";
 			regulator-name = "usb_otg_vbus";
@@ -143,6 +143,13 @@
 	};
 
 	user-gpios {
+	
+		gpio-bt-enable {
+			gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <1>;
+		};
+		
 		gpio-spinor-wp {
 			gpios = <&gpio3 20 GPIO_ACTIVE_HIGH>;
 			status = "okay";

@@ -29,12 +29,19 @@
 
 #define DAI_NAME_SIZE	32
 
+struct pcm_gpio_info {
+	int gpio_nr;
+	enum of_gpio_flags flags;
+};
+
 struct imx_pcm1681_data {
 	struct snd_soc_dai_link dai;
 	struct snd_soc_card card;
 	char codec_dai_name[DAI_NAME_SIZE];
 	char platform_name[DAI_NAME_SIZE];
 	unsigned int clk_frequency;
+	struct pcm_gpio_info shutdown_gpios[8];
+	int num_shutdown_gpios;
 };
 
 static const struct snd_soc_dapm_widget imx_pcm1681_dapm_widgets[] = {
@@ -73,7 +80,6 @@ static int imx_pcm1681_hw_param(struct snd_pcm_substream *substream,
 	int slotw=32;
 	u32 width = snd_pcm_format_width(params_format(params));
 	unsigned int clock_freq=0;
-	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	u32 codec_dai_format = SND_SOC_DAIFMT_LEFT_J | SND_SOC_DAIFMT_NB_IF | SND_SOC_DAIFMT_CBS_CFS;
 
 	ret = snd_soc_dai_set_fmt(codec_dai, codec_dai_format);
@@ -139,8 +145,38 @@ static int imx_pcm1681_hw_param(struct snd_pcm_substream *substream,
 }
 
 
+
+static void imx_pcm1681_set_amps(struct imx_pcm1681_data *priv, bool off)
+{
+	int n;
+	dev_dbg(priv->card.dev, "%s off = %d\n", __func__, off);
+	for (n=0; n < priv->num_shutdown_gpios; n++) {
+		if (priv->shutdown_gpios[n].flags == OF_GPIO_ACTIVE_LOW)
+			gpio_set_value(priv->shutdown_gpios[n].gpio_nr, off ? 0 : 1 );
+		else
+			gpio_set_value(priv->shutdown_gpios[n].gpio_nr, off ? 1 : 0 );
+	}
+}
+
+static int imx_pcm1681_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct imx_pcm1681_data *data = snd_soc_card_get_drvdata(rtd->card);
+	imx_pcm1681_set_amps(data, false);
+	return 0;
+}
+
+static void imx_pcm1681_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct imx_pcm1681_data *data = snd_soc_card_get_drvdata(rtd->card);
+	imx_pcm1681_set_amps(data, true);
+}
+
 static struct snd_soc_ops imx_hifi_ops = {
 	.hw_params = imx_pcm1681_hw_param,
+	.startup = imx_pcm1681_startup,
+	.shutdown = imx_pcm1681_shutdown,
 };
 
 
@@ -152,6 +188,10 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 	struct i2c_client *codec_dev;
 	struct imx_pcm1681_data *data;
 	int ret;
+	int n, sd_gpios;
+	enum of_gpio_flags flags;
+	int gpio_nr;
+	char label[32];
 
 
 	cpu_np = of_parse_phandle(pdev->dev.of_node, "cpu-dai", 0);
@@ -188,12 +228,36 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
+
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data) {
 		ret = -ENOMEM;
 		goto fail;
 	}
 
+	sd_gpios = of_gpio_named_count(pdev->dev.of_node, "amp-shutdown-gpios");
+	for (n=0; n < sd_gpios; n++) {
+		ret = of_get_named_gpio(pdev->dev.of_node, "amp-shutdown-gpios", n);
+		if (ret < 0 || !gpio_is_valid(ret))
+			dev_warn(&pdev->dev, "%s: Bad DT for gpio %d [%d]\n", __func__, n, ret);
+		else {
+			gpio_nr = ret;
+			of_get_named_gpio_flags(pdev->dev.of_node, "amp-shutdown-gpios", n, &flags);
+
+			sprintf(label, "imx_pcm1681_%d", gpio_nr);
+			ret = gpio_request_one(gpio_nr,
+					flags == OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH,
+					label);
+			if (ret < 0)
+				dev_warn(&pdev->dev, "%s: Unable to allocate gpio %d [%d]\n", __func__, n, ret);
+			else {
+				dev_info(&pdev->dev, "%s: Using gpio %d with flag %d\n", __func__, gpio_nr, flags);
+				data->shutdown_gpios[n].gpio_nr = gpio_nr;
+				data->shutdown_gpios[n].flags = flags;
+				data->num_shutdown_gpios++;
+			}
+		}
+	}
 	data->dai.name = "HiFi";
 	data->dai.stream_name = "HiFi";
 	data->dai.codec_dai_name = "pcm1681-hifi";
