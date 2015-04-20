@@ -221,10 +221,8 @@ static void __init laerdal2_init_machine(void)
 				flags = GPIOF_DIR_IN;
 
 			if ( of_property_read_bool(it, "bidir"))
-				flags |= GPIOF_EXPORT_CHANGEABLE;
+				flags |= GPIOF_EXPORT_DIR_CHANGEABLE;
 
-			if (of_property_read_bool(it, "opendrain"))
-				flags |= GPIOF_OPEN_DRAIN;
 
 			flags |= GPIOF_EXPORT;
 			ret = gpio_request_one(gpio_nr, flags, it->name);
