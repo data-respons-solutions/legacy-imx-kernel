@@ -191,7 +191,6 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 	int n, sd_gpios;
 	enum of_gpio_flags flags;
 	int gpio_nr;
-	char label[32];
 
 
 	cpu_np = of_parse_phandle(pdev->dev.of_node, "cpu-dai", 0);
@@ -244,10 +243,9 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 			gpio_nr = ret;
 			of_get_named_gpio_flags(pdev->dev.of_node, "amp-shutdown-gpios", n, &flags);
 
-			sprintf(label, "imx_pcm1681_%d", gpio_nr);
 			ret = gpio_request_one(gpio_nr,
 					flags == OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH,
-					label);
+					"imx-pcm1681");
 			if (ret < 0)
 				dev_warn(&pdev->dev, "%s: Unable to allocate gpio %d [%d]\n", __func__, n, ret);
 			else {

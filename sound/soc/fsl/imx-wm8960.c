@@ -72,6 +72,24 @@ static struct snd_soc_jack_gpio imx_hp_jack_gpio = {
 	.invert = 0,
 };
 
+static struct snd_soc_jack imx_hs_jack;
+static struct snd_soc_jack_pin imx_hs_jack_pins[] = {
+	{
+		.pin = "Headphone Jack",
+		.mask = SND_JACK_HEADSET,
+	},
+	{
+		.pin = "AMIC",
+		.mask = SND_JACK_HEADSET,
+	}
+};
+static struct snd_soc_jack_gpio imx_hs_jack_gpio = {
+	.name = "headphone detect",
+	.report = SND_JACK_HEADPHONE,
+	.debounce_time = 250,
+	.invert = 0,
+};
+
 static struct snd_soc_jack imx_mic_jack;
 static struct snd_soc_jack_pin imx_mic_jack_pins[] = {
 	{
@@ -104,23 +122,37 @@ static int hpjack_status_check(void)
 		return -ENOMEM;
 	}
 
-	if (hp_status != priv->hp_active_low) {
-		snprintf(buf, 32, "STATE=%d", 2);
-		snd_soc_dapm_disable_pin(&priv->codec->dapm, "Ext Spk");
-		if (priv->iphone_jack)
-			snd_soc_dapm_disable_pin(&priv->codec->dapm, "AMIC");
-		ret = imx_hp_jack_gpio.report;
-		snd_kctl_jack_report(priv->snd_card, priv->headphone_kctl, 1);
-	} else {
-		snprintf(buf, 32, "STATE=%d", 0);
-		snd_soc_dapm_enable_pin(&priv->codec->dapm, "Ext Spk");
-		ret = 0;
-		if (priv->iphone_jack)
+	if (priv->iphone_jack) {
+		envp[0] = "NAME=headset";
+		if (hp_status != priv->hp_active_low) {
+			snprintf(buf, 32, "STATE=%d", 2);
+			snd_soc_dapm_disable_pin(&priv->codec->dapm, "Ext Spk");
 			snd_soc_dapm_enable_pin(&priv->codec->dapm, "AMIC");
-		snd_kctl_jack_report(priv->snd_card, priv->headphone_kctl, 0);
+			ret = imx_hs_jack_gpio.report;
+			snd_kctl_jack_report(priv->snd_card, priv->headphone_kctl, 1);
+		} else {
+			snprintf(buf, 32, "STATE=%d", 0);
+			snd_soc_dapm_enable_pin(&priv->codec->dapm, "Ext Spk");
+			snd_soc_dapm_disable_pin(&priv->codec->dapm, "AMIC");
+			ret = 0;
+			snd_kctl_jack_report(priv->snd_card, priv->headphone_kctl, 0);
+		}
+	}
+	else {
+		envp[0] = "NAME=headphone";
+		if (hp_status != priv->hp_active_low) {
+			snprintf(buf, 32, "STATE=%d", 2);
+			snd_soc_dapm_disable_pin(&priv->codec->dapm, "Ext Spk");
+			ret = imx_hp_jack_gpio.report;
+			snd_kctl_jack_report(priv->snd_card, priv->headphone_kctl, 1);
+		} else {
+			snprintf(buf, 32, "STATE=%d", 0);
+			snd_soc_dapm_enable_pin(&priv->codec->dapm, "Ext Spk");
+			ret = 0;
+			snd_kctl_jack_report(priv->snd_card, priv->headphone_kctl, 0);
+		}
 	}
 
-	envp[0] = "NAME=headphone";
 	envp[1] = buf;
 	envp[2] = NULL;
 	kobject_uevent_env(&pdev->dev.kobj, KOBJ_CHANGE, envp);
@@ -141,7 +173,6 @@ static int micjack_status_check(void)
 
 	mic_status = gpio_get_value(priv->mic_gpio) ? 1 : 0;
 
-
 	buf = kmalloc(32, GFP_ATOMIC);
 	if (!buf) {
 		dev_err(&pdev->dev, "%s kmalloc failed\n", __func__);
@@ -150,11 +181,15 @@ static int micjack_status_check(void)
 
 	if (mic_status != priv->mic_active_low) {
 		snprintf(buf, 32, "STATE=%d", 2);
-		snd_soc_dapm_disable_pin(&priv->codec->dapm, "AMIC");
+		dev_info(&pdev->dev, "%s: Enable AMIC\n", __func__);
+		snd_soc_dapm_enable_pin(&priv->codec->dapm, "AMIC");
+		snd_soc_dapm_force_enable_pin(&priv->codec->dapm, "MICB");
 		ret = imx_mic_jack_gpio.report;
 	} else {
 		snprintf(buf, 32, "STATE=%d", 0);
-		snd_soc_dapm_enable_pin(&priv->codec->dapm, "AMIC");
+		dev_info(&pdev->dev, "%s: Disable AMIC\n", __func__);
+		snd_soc_dapm_disable_pin(&priv->codec->dapm, "AMIC");
+		//snd_soc_dapm_sync(&priv->codec->dapm);
 		ret = 0;
 	}
 
@@ -224,7 +259,7 @@ static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	dev_info(dev, "%s: codec_clk=%d, rate=%d, pll=%d, sys_div=%d, dac_div=%d, bclk_div=%d\n",
+	dev_dbg(dev, "%s: codec_clk=%d, rate=%d, pll=%d, sys_div=%d, dac_div=%d, bclk_div=%d\n",
 			__func__,
 			data->clk_frequency,
 			wm8960_clocksetup[n].rate,
@@ -272,20 +307,26 @@ static int imx_wm8960_gpio_init(struct snd_soc_card *card)
 	struct snd_soc_dai *codec_dai = card->rtd[0].codec_dai;
 	struct snd_soc_codec *codec = codec_dai->codec;
 	struct imx_priv *priv = &card_priv;
-	enum snd_jack_types jack_type = SND_JACK_HEADPHONE;
 
 	priv->codec = codec;
 
 	if (priv->iphone_jack) {
-		jack_type = SND_JACK_HEADSET;
-		imx_hp_jack_pins[0].mask = SND_JACK_HEADSET;
-		imx_hp_jack_gpio.report = SND_JACK_HEADSET;
+		if (gpio_is_valid(priv->hp_gpio)) {
+			imx_hs_jack_gpio.gpio = priv->hp_gpio;
+			imx_hs_jack_gpio.jack_status_check = hpjack_status_check;
+
+			snd_soc_jack_new(codec, "Headset Jack", SND_JACK_HEADSET, &imx_hs_jack);
+			snd_soc_jack_add_pins(&imx_hs_jack,
+					ARRAY_SIZE(imx_hs_jack_pins), imx_hs_jack_pins);
+			snd_soc_jack_add_gpios(&imx_hs_jack, 1, &imx_hs_jack_gpio);
+		}
+		return 0;
 	}
 	if (gpio_is_valid(priv->hp_gpio)) {
 		imx_hp_jack_gpio.gpio = priv->hp_gpio;
 		imx_hp_jack_gpio.jack_status_check = hpjack_status_check;
 
-		snd_soc_jack_new(codec, "Headphone Jack", jack_type, &imx_hp_jack);
+		snd_soc_jack_new(codec, "Headphone Jack", SND_JACK_HEADPHONE, &imx_hp_jack);
 		snd_soc_jack_add_pins(&imx_hp_jack,
 				ARRAY_SIZE(imx_hp_jack_pins), imx_hp_jack_pins);
 		snd_soc_jack_add_gpios(&imx_hp_jack, 1, &imx_hp_jack_gpio);
@@ -342,7 +383,7 @@ static ssize_t show_mic(struct device_driver *dev, char *buf)
 	if (mic_status != priv->mic_active_low)
 		strcpy(buf, "amic\n");
 	else
-		strcpy(buf, "dmic\n");
+		strcpy(buf, "none\n");
 
 	return strlen(buf);
 }
