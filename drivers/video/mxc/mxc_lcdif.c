@@ -52,7 +52,7 @@ static struct fb_videomode lcdif_modedb[] = {
 	0,},
 	{
 	/* 640x480 @ 60 Hz , pixel clk @ 23.5MHz */
-	"SIMPAD-VGA", 60, 640, 480, 42553, 80, 80, 23, 10, 10, 10,
+	"SIMPAD-VGA", 60, 640, 480, 40000, 16, 114, 10, 32, 30, 3,
 	FB_SYNC_CLK_LAT_FALL,
 	FB_VMODE_NONINTERLACED,
 	0,},
