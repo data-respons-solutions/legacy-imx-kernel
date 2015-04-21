@@ -91,6 +91,12 @@
 		};
 	};
 
+	pwm-manikin@0 {
+		compatible = "pwm-buzzer";
+		pwms = <&pwm1 0 40000>;
+		status = "okay";
+	};
+	
 	gpio-keys {
 		compatible = "gpio-keys";
 		power {
@@ -223,6 +229,18 @@
 			gpios = <&gpio1 25 GPIO_ACTIVE_HIGH>;
 			status = "okay";
 			value = <1>;
+		};
+		
+		gpio-pwm3 {
+			gpios = <&gpio1 17 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <0>;
+		};
+		
+		gpio-pwm2 {
+			gpios = <&gpio1 19 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <0>;
 		};
 	};
 	
@@ -560,6 +578,8 @@
 				MX6QDL_PAD_SD1_CMD__GPIO1_IO18		0x80000000		/* LED_R_Status--CPU */
 				MX6QDL_PAD_SD1_CLK__GPIO1_IO20		0x80000000		/* LED_G_Status--CPU */
 				MX6QDL_PAD_SD1_DAT0__GPIO1_IO16		0x80000000		/* LED_B_Status--CPU */
+				MX6QDL_PAD_SD1_DAT1__GPIO1_IO17		0x80000000		/* PWM3 (as gpio) */
+				MX6QDL_PAD_SD1_DAT2__GPIO1_IO19		0x80000000		/* PWM2 (as gpio) */
 				MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25	0x80000000		/* Phy reset (low) */
 				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x1b0b1			/* Phy IRQ */
 				MX6QDL_PAD_DISP0_DAT4__GPIO4_IO25	0x80000000		/* AC5W_SD */
@@ -866,17 +886,19 @@
 &pwm1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm1>;
+	status = "okay";
 };
 
 &pwm2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pwm2>;
+	/*pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm2>; */
 	status = "disabled";
 };
 
 &pwm3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pwm3_lb>;
+	/* pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm3_lb>; */
+	status = "disabled";
 };
 
 &epdc {
