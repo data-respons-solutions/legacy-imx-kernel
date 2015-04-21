@@ -109,7 +109,7 @@
 	
 	backlight  {
 		compatible = "pwm-backlight";
-		pwms = <&pwm1 0 5000000>;
+		pwms = <&pwm1 0 25000>;
 		brightness-levels = < 0 1 2 3 4 5 6 8  11 16  23  32 48
 							  64 81 100 121 144 169 196 225
 							  256 289 324 361 400 441 484 529
@@ -138,12 +138,29 @@
 		default_ifmt = "RGB666";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_ipu1_simpad>;
-		enable_gpio = <&gpio1 30 GPIO_ACTIVE_LOW>;
+		enable_gpio = <&gpio1 30 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
 	user-gpios {
-	
+	/*
+		gpio-lcd-enable {
+			gpios = <&gpio1 30 GPIO_ACTIVE_LOW>;
+			status = "okay";
+			value = <0>;
+		};
+	*/
+		gpio-lcd-flip-h {
+			gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <0>;
+		};
+		
+		gpio-lcd-flip-v {
+			gpios = <&gpio1 8 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <1>;
+		};
 		gpio-bt-enable {
 			gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
 			status = "okay";
@@ -218,8 +235,7 @@
 	
 	vibra@0 {
 		compatible = "pwm-buzzer";
-		pwm_id = <1>;
-		pwm_period_ns = <50000>;
+		pwms = <&pwm2 0 50000>;
 		status = "okay";
 	};
 };
@@ -438,9 +454,9 @@
     pinctrl-0 = <&pinctrl_i2c3>;
     status = "okay";
 
-	egalax_ts@1c {
+	egalax_ts@4 {
 	    compatible = "eeti,egalax_ts";
-	    reg = <0x1c>;
+	    reg = <0x4>;
 	    interrupt-parent = <&gpio7>;
 	    interrupts = <13 2>;
 	    wakeup-gpios = <&gpio7 13 0>;
@@ -470,8 +486,10 @@
 				MX6QDL_PAD_KEY_COL4__GPIO4_IO14		0x00000840		/* GP--Charger_nCE */
 				MX6QDL_PAD_GPIO_0__CCM_CLKO1		0x130b0  		/* External audio clk */
 				MX6QDL_PAD_GPIO_1__WDOG2_B			0x80000000
+				MX6QDL_PAD_GPIO_7__GPIO1_IO07		0x80000000		/* LCD flip H */
+				MX6QDL_PAD_GPIO_8__GPIO1_IO08		0x80000000		/* LCD flip V */
 				MX6QDL_PAD_GPIO_9__GPIO1_IO09		0x0001b000		/* GP--HP_DET, pullup */
-				MX6QDL_PAD_GPIO_18__GPIO7_IO13		0x0001b000 		/* GP--CTP_nINT (touch interrupt */
+				MX6QDL_PAD_GPIO_18__GPIO7_IO13		0x0001b8b1 		/* GP--CTP_nINT (touch interrupt */
 				MX6QDL_PAD_GPIO_19__GPIO4_IO05		0x80000000		/* DC_IN_nFLG (adapter detect) */
 				MX6QDL_PAD_NANDF_CS0__GPIO6_IO11	0x80000000		/* GP--WL_VDDIO_EN */
 				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x00010040		/* GP--BT_WAKE */
@@ -493,6 +511,7 @@
 				MX6QDL_PAD_SD1_CMD__GPIO1_IO18		0x80000000		/* LED_R_Status--CPU */
 				MX6QDL_PAD_SD1_CLK__GPIO1_IO20		0x80000000		/* LED_G_Status--CPU */
 				MX6QDL_PAD_SD1_DAT0__GPIO1_IO16		0x80000000		/* LED_B_Status--CPU */
+
 				MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25	0x80000000		/* Phy reset (low) */
 				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x1b0b1			/* Phy IRQ */
 				MX6QDL_PAD_ENET_TXD0__GPIO1_IO30	0x80000000		/* DISP0_PWR_EN */
@@ -694,9 +713,9 @@
 		pinctrl_ipu1_simpad: ipu1grp-simpad {
 			fsl,pins = <
 				MX6QDL_PAD_DI0_DISP_CLK__IPU1_DI0_DISP_CLK 0x10
-				MX6QDL_PAD_DI0_PIN15__LCD_ENABLE      0x10
-				MX6QDL_PAD_DI0_PIN2__LCD_HSYNC        0x10
-				MX6QDL_PAD_DI0_PIN3__LCD_VSYNC        0x10
+				MX6QDL_PAD_DI0_PIN15__IPU1_DI0_PIN15       0x10
+				MX6QDL_PAD_DI0_PIN2__IPU1_DI0_PIN02        0x10
+				MX6QDL_PAD_DI0_PIN3__IPU1_DI0_PIN03        0x10
 				MX6QDL_PAD_DI0_PIN4__IPU1_DI0_PIN04        0x80000000
 				MX6QDL_PAD_DISP0_DAT0__IPU1_DISP0_DATA00   0x10
 				MX6QDL_PAD_DISP0_DAT1__IPU1_DISP0_DATA01   0x10
