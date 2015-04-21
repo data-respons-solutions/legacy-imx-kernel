@@ -94,7 +94,7 @@ static int compute_duty_cycle(struct pwm_bl_data *pb, int brightness)
 	else
 		duty_cycle = brightness;
 
-	return (duty_cycle * (pb->period - lth) / pb->scale) + lth;
+	return div_u64(duty_cycle * (pb->period - lth), pb->scale) + lth;
 }
 
 static int pwm_backlight_update_status(struct backlight_device *bl)
