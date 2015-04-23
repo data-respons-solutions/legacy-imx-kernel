@@ -70,9 +70,8 @@ ifeq ($(CONFIG_DHD_USE_STATIC_BUF),y)
   DHDCFLAGS += -DENHANCED_STATIC_BUF
   DHDCFLAGS += -DSTATIC_WL_PRIV_STRUCT
 endif
-ifneq ($(CONFIG_DHD_USE_SCHED_SCAN),)
 DHDCFLAGS += -DWL_SCHED_SCAN
-endif
+ccflags-y += -DWL_SCHED_SCAN
 
 # Ioctl timeout 5000ms
 DHDCFLAGS += -DIOCTL_RESP_TIMEOUT=5000
@@ -106,7 +105,7 @@ DHDCFLAGS += -DCUSTOM_SET_SHORT_DWELL_TIME
 # m: module type driver
 # y: built-in type driver
 ##########################
-DRIVER_TYPE ?= y
+DRIVER_TYPE ?= m
 
 #########################
 # Chip dependent feature
@@ -208,40 +207,47 @@ ifeq ($(DRIVER_TYPE),y)
   DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
   DHDCFLAGS += -DUSE_LATE_INITCALL_SYNC
 endif
-
-EXTRA_CFLAGS += $(DHDCFLAGS) -DDHD_DEBUG
+EXTRA_CFLAGS += $(DHDCFLAGS) -DDHD_DEBUG -DBCMSDIO
 EXTRA_CFLAGS += -DSRCBASE=\"$(src)\"
 EXTRA_CFLAGS += -I$(src)/include/ -I$(src)/
 KBUILD_CFLAGS += -I$(LINUXDIR)/include -I$(shell pwd)
 
-DHDOFILES := dhd_pno.o dhd_common.o dhd_ip.o dhd_custom_gpio.o \
-	dhd_linux.o dhd_linux_sched.o dhd_cfg80211.o dhd_linux_wq.o aiutils.o bcmevent.o \
-	bcmutils.o bcmwifi_channels.o hndpmu.o linux_osl.o sbutils.o siutils.o \
-	wl_android.o wl_roam.o wl_cfg80211.o wl_cfgp2p.o wl_cfg_btcoex.o wldev_common.o wl_linux_mon.o  \
-	dhd_linux_platdev.o dhd_pno.o dhd_rtt.o dhd_linux_wq.o wl_cfg_btcoex.o \
-	hnd_pktq.o hnd_pktpool.o wl_cfgvendor.o bcmxtlv.o
 
-ifneq ($(CONFIG_BCMDHD_SDIO),)
-  DHDOFILES += bcmsdh.o bcmsdh_linux.o bcmsdh_sdmmc.o bcmsdh_sdmmc_linux.o
-  DHDOFILES += dhd_cdc.o dhd_wlfc.o dhd_sdio.o
-endif
+bcmdhd-objs += dhd_pno.o 
+bcmdhd-objs += dhd_common.o
+bcmdhd-objs += dhd_ip.o
+bcmdhd-objs += dhd_custom_gpio.o
+bcmdhd-objs += dhd_linux.o
+bcmdhd-objs += dhd_linux_sched.o
+bcmdhd-objs += dhd_cfg80211.o
+bcmdhd-objs += dhd_linux_wq.o
+bcmdhd-objs += aiutils.o
+bcmdhd-objs += bcmevent.o
+bcmdhd-objs += bcmutils.o
+bcmdhd-objs += bcmwifi_channels.o
+bcmdhd-objs += hndpmu.o
+bcmdhd-objs += linux_osl.o
+bcmdhd-objs += sbutils.o
+bcmdhd-objs += siutils.o
+bcmdhd-objs += wl_android.o
+bcmdhd-objs += wl_roam.o
+bcmdhd-objs += wl_cfg80211.o
+bcmdhd-objs += wl_cfgp2p.o
+bcmdhd-objs += wl_cfg_btcoex.o
+bcmdhd-objs += wldev_common.o
+bcmdhd-objs += wl_linux_mon.o
+bcmdhd-objs += dhd_linux_platdev.o
+bcmdhd-objs += dhd_pno.o
+bcmdhd-objs += dhd_rtt.o
+bcmdhd-objs += dhd_linux_wq.o
+bcmdhd-objs += hnd_pktq.o
+bcmdhd-objs += hnd_pktpool.o
+bcmdhd-objs += wl_cfgvendor.o
+bcmdhd-objs += bcmxtlv.o
+	
+bcmdhd-$(CONFIG_BCMDHD_SDIO) += bcmsdh.o bcmsdh_linux.o bcmsdh_sdmmc.o bcmsdh_sdmmc_linux.o dhd_cdc.o dhd_wlfc.o dhd_sdio.o
+bcmdhd-$(CONFIG_BCMDHD_PCIE) += dhd_pcie.o dhd_pcie_linux.o dhd_msgbuf.o dhd_flowring.o pcie_core.o
 
-ifneq ($(CONFIG_BCMDHD_PCIE),)
-  DHDOFILES += dhd_pcie.o dhd_pcie_linux.o dhd_msgbuf.o dhd_flowring.o
-  DHDOFILES += pcie_core.o
-endif
+obj-$(CONFIG_BCMDHD)  += bcmdhd.o
 
-bcmdhd-objs := $(DHDOFILES)
-obj-$(DRIVER_TYPE)   += bcmdhd.o
 
-all:
-	@echo "$(MAKE) --no-print-directory -C $(KDIR) SUBDIRS=$(CURDIR) modules"
-	@$(MAKE) --no-print-directory -C $(KDIR) SUBDIRS=$(CURDIR) modules
-
-clean:
-	rm -rf *.o *.ko *.mod.c *~ .*.cmd *.o.cmd .*.o.cmd \
-	Module.symvers modules.order .tmp_versions modules.builtin
-
-install:
-	@$(MAKE) --no-print-directory -C $(KDIR) \
-		SUBDIRS=$(CURDIR) modules_install

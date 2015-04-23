@@ -374,8 +374,9 @@ dhd_prot_hdrpush(dhd_pub_t *dhd, int ifidx, void *PKTBUF)
 	h->priority = (PKTPRIO(PKTBUF) & BDC_PRIORITY_MASK);
 	h->flags2 = 0;
 	h->dataOffset = 0;
-#endif /* BDC */
+
 	BDC_SET_IF_IDX(h, ifidx);
+#endif /* BDC */
 }
 #undef PKTBUF	/* Only defined in the above routine */
 
