@@ -19,7 +19,6 @@ struct pwm_buzzer_data {
 	unsigned int		pwmId;
 	unsigned int		period;
 	unsigned int		isOn;
-	char				name[80];
 };
 
 static DEFINE_MUTEX(sysfs_lock);
@@ -40,6 +39,7 @@ static ssize_t pwm_buzzer_show(struct device *dev,  struct device_attribute *att
 static ssize_t pwm_buzzer_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t sz) {
 	struct pwm_buzzer_data *pb = dev_get_drvdata(dev);
 	ssize_t status = sz;
+	dev_info(dev, "%s: %s with %d ns\n", __func__, buf, pb->period);
 	mutex_lock(&sysfs_lock);
 	if (sysfs_streq(buf, "on")) {
 		pb->isOn = 1;
@@ -72,24 +72,21 @@ static int pwm_buzzer_probe(struct platform_device *pdev)
 	pb = devm_kzalloc(&pdev->dev, sizeof(*pb), GFP_KERNEL);
 	if (!pb) {
 		dev_err(&pdev->dev, "no memory for state\n");
-		ret = -ENOMEM;
-		goto err_alloc;
+		return -ENOMEM;
 	}
-	strcpy(pb->name, "buzzer");
 
-	if (np) {
-		if ( of_property_read_string(np, "pwm-name", (const char**)&pb->name))
-			dev_info(&pdev->dev, "No given name in DT, using buzzer\n");
+	if (!np) {
+		dev_err(&pdev->dev, "No DT node found\n");
+		return -EINVAL;
 	}
 
 	pb->dev = &pdev->dev;
 	pb->isOn = 0;
 
-	pb->pwm = devm_pwm_get(&pdev->dev, NULL);
+	pb->pwm = devm_of_pwm_get(&pdev->dev, np, NULL);
 	if (IS_ERR(pb->pwm)) {
-		dev_err(&pdev->dev, "unable to request PWM for buzzer %s\n", pb->name);
-		ret = PTR_ERR(pb->pwm);
-		goto err_pwm;
+		dev_err(&pdev->dev, "unable to request PWM for buzzer\n");
+		return PTR_ERR(pb->pwm);
 	}
 	pb->period = pwm_get_period(pb->pwm);
 	dev_info(&pdev->dev, "%s: got pwm %d, period %d ns\n", __func__, pb->pwmId, pb->period);
@@ -99,11 +96,6 @@ static int pwm_buzzer_probe(struct platform_device *pdev)
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_buzz.attr);
 	platform_set_drvdata(pdev, pb);
 	return 0;
-
-err_pwm:
-err_alloc:
-
-	return ret;
 }
 
 static int pwm_buzzer_remove(struct platform_device *pdev)
