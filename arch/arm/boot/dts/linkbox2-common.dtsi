@@ -219,8 +219,20 @@
 			value = <1>;
 		};
 		
+		gpio-wlan-host-wake {
+			gpios = <&gpio2 6 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			bidir;
+		};
+		
+		gpio-bt-host-wake {
+			gpios = <&gpio6 7 GPIO_ACTIVE_LOW>;
+			status = "okay";
+			bidir;
+		};
+		
 		gpio-bt-dev-wake {
-			gpios = <&gpio6 8 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio6 8 GPIO_ACTIVE_LOW>;
 			status = "okay";
 			value = <1>;
 		};
@@ -256,6 +268,7 @@
 		status-green {
 			gpios = <&gpio1 20 GPIO_ACTIVE_LOW>;
 			default-state = "on";
+			linux,default-trigger = "heartbeat";
 		};
 		
 		status-blue {
@@ -372,14 +385,12 @@
 &cpu0 {
 	arm-supply = <&reg_arm>;
 	soc-supply = <&reg_soc>;
-	pu-supply = <&reg_pu>; /* use pu_dummy if VDDSOC share with VDDPU */
 };
 
 
 &gpc {
 	fsl,ldo-bypass = <0>; /* use ldo-bypass, u-boot will check it and configure */
 	fsl,wdog-reset = <2>; /* watchdog select of reset source */
-	pu-supply = <&reg_pu>; /* ldo-bypass:use pu_dummy if VDDSOC share with VDDPU */
 };
 
 &wdog1 {
@@ -388,10 +399,6 @@
 
 &wdog2 {
 	status = "okay";
-};
-
-&vpu {
-	pu-supply = <&reg_pu>; /* ldo-bypass:use pu_dummy if VDDSOC share with VDDPU */
 };
 
 &i2c4 {
@@ -558,15 +565,15 @@
 				MX6QDL_PAD_GPIO_5__GPIO1_IO05		0x80000000		/* SPK_SD_N */
 				MX6QDL_PAD_GPIO_9__GPIO1_IO09		0x0001b000		/* HP_DET, pullup */
 				MX6QDL_PAD_GPIO_19__GPIO4_IO05		0x80000000		/* DC_IN_nFLG (adapter detect) */
-				MX6QDL_PAD_NANDF_CLE__GPIO6_IO07	0x1b0b1			/* GP--BT_HOST_WAKE */
+				MX6QDL_PAD_NANDF_CLE__GPIO6_IO07	0x80000000		/* GP--BT_HOST_WAKE */
 				MX6QDL_PAD_NANDF_CS0__GPIO6_IO11	0x80000000		/* GP--WL_VDDIO_EN */
-				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x80000000		/* GP--BT_WAKE */
+				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x1b8b1			/* GP--BT_WAKE */
 				MX6QDL_PAD_NANDF_RB0__GPIO6_IO10	0x0001b000		/* PMIC_INT_B */
 				MX6QDL_PAD_NANDF_D3__GPIO2_IO03		0x80000000		/* WL_REG_ON (WiFI power) */
 				MX6QDL_PAD_NANDF_D4__GPIO2_IO04		0x80000000		/* BT_REG_ON (Bluetooth power) */
 				MX6QDL_PAD_NANDF_D5__GPIO2_IO05		0x0001b000		/* WL_IRQ (WiFI interrupt */
 				MX6QDL_PAD_NANDF_D6__GPIO2_IO06		0x1b0b1			/* GP--WL_HOST_WAKE */
-				MX6QDL_PAD_NANDF_D7__GPIO2_IO07		0x80000000		/* GP--WL_DEV_WAKE */
+				MX6QDL_PAD_NANDF_D7__GPIO2_IO07		0x1b8b1			/* GP--WL_DEV_WAKE */
 				MX6QDL_PAD_EIM_A25__GPIO5_IO02		0x0001b000		/* Recovery_setting (control boot) */
 				MX6QDL_PAD_EIM_D20__GPIO3_IO20		0x80000000		/* GP--nWP--flash (SPI flash WP) */
 				MX6QDL_PAD_EIM_D21__GPIO3_IO21		0x80000000		/* CAN_EN */
@@ -800,6 +807,15 @@
 			MX6QDL_PAD_CSI0_DAT15__UART5_RX_DATA 0x1b0b1
 			MX6QDL_PAD_CSI0_DAT18__UART5_RTS_B   0x1b0b1
 			MX6QDL_PAD_CSI0_DAT19__UART5_CTS_B   0x1b0b1
+		>;
+		};
+		
+		pinctrl_uart5_dte_linkbox2: uart5grp-dte_linkbox2 {
+		fsl,pins = <
+			MX6QDL_PAD_CSI0_DAT14__UART5_RX_DATA 0x1b0b1
+			MX6QDL_PAD_CSI0_DAT15__UART5_TX_DATA 0x1b0b1
+			MX6QDL_PAD_CSI0_DAT18__UART5_CTS_B   0x1b0b1
+			MX6QDL_PAD_CSI0_DAT19__UART5_RTS_B   0x1b0b1
 		>;
 		};
 	};

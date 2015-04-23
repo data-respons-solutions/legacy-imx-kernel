@@ -197,6 +197,30 @@
 			value = <1>;
 		};
 		
+		gpio-wlan-dev-wake {
+			gpios = <&gpio2 7 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <1>;
+		};
+		
+		gpio-wlan-host-wake {
+			gpios = <&gpio2 6 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			bidir;
+		};
+		
+		gpio-bt-host-wake {
+			gpios = <&gpio6 7 GPIO_ACTIVE_LOW>;
+			status = "okay";
+			bidir;
+		};
+		
+		gpio-bt-dev-wake {
+			gpios = <&gpio6 8 GPIO_ACTIVE_LOW>;
+			status = "okay";
+			value = <1>;
+		};
+		
 	};
 	
 	leds {
@@ -210,6 +234,7 @@
 		status-green {
 			gpios = <&gpio1 20 GPIO_ACTIVE_LOW>;
 			default-state = "on";
+			linux,default-trigger = "heartbeat";
 		};
 		
 		status-blue {
@@ -289,14 +314,12 @@
 &cpu0 {
 	arm-supply = <&reg_arm>;
 	soc-supply = <&reg_soc>;
-	pu-supply = <&reg_pu>; /* use pu_dummy if VDDSOC share with VDDPU */
 };
 
 
 &gpc {
 	fsl,ldo-bypass = <0>; /* use ldo-bypass, u-boot will check it and configure */
 	fsl,wdog-reset = <2>; /* watchdog select of reset source */
-	pu-supply = <&reg_pu>; /* ldo-bypass:use pu_dummy if VDDSOC share with VDDPU */
 };
 
 &wdog1 {
@@ -305,10 +328,6 @@
 
 &wdog2 {
 	status = "okay";
-};
-
-&vpu {
-	pu-supply = <&reg_pu>; /* ldo-bypass:use pu_dummy if VDDSOC share with VDDPU */
 };
 
 &i2c4 {
@@ -492,14 +511,14 @@
 				MX6QDL_PAD_GPIO_18__GPIO7_IO13		0x0001b8b1 		/* GP--CTP_nINT (touch interrupt */
 				MX6QDL_PAD_GPIO_19__GPIO4_IO05		0x80000000		/* DC_IN_nFLG (adapter detect) */
 				MX6QDL_PAD_NANDF_CS0__GPIO6_IO11	0x80000000		/* GP--WL_VDDIO_EN */
-				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x00010040		/* GP--BT_WAKE */
+				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x1b8b1			/* GP--BT_WAKE */
 				MX6QDL_PAD_NANDF_RB0__GPIO6_IO10	0x0001b000		/* PMIC_INT_B */
 				MX6QDL_PAD_NANDF_D1__GPIO2_IO01		0x0001b000		/* ACCL_INT_IN */
 				MX6QDL_PAD_NANDF_D3__GPIO2_IO03		0x80000000		/* WL_REG_ON (WiFI power) */
 				MX6QDL_PAD_NANDF_D4__GPIO2_IO04		0x80000000		/* BT_REG_ON (Bluetooth power) */
 				MX6QDL_PAD_NANDF_D5__GPIO2_IO05		0x0001b000		/* WL_IRQ (WiFI interrupt */
 				MX6QDL_PAD_NANDF_D6__GPIO2_IO06		0x80000000		/* GP--WL_HOST_WAKE */
-				MX6QDL_PAD_NANDF_D7__GPIO2_IO07		0x0001b000		/* GP--WL_DEV_WAKE */
+				MX6QDL_PAD_NANDF_D7__GPIO2_IO07		0x1b8b1			/* GP--WL_DEV_WAKE */
 				MX6QDL_PAD_EIM_A25__GPIO5_IO02		0x0001b000		/* Recovery_setting (control boot) */
 				MX6QDL_PAD_EIM_D20__GPIO3_IO20		0x80000000		/* GP--nWP--flash (SPI flash WP) */
 				MX6QDL_PAD_EIM_D23__GPIO3_IO23		0x00000840		/* GP--CHarger_ISET */
