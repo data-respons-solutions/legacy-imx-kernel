@@ -254,6 +254,24 @@
 			status = "okay";
 			value = <0>;
 		};
+		
+		gpio-pmu1 {
+			gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			bidir;
+		};
+		
+		gpio-pmu2 {
+			gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <0>;
+		};
+		
+		gpio-pmu-rst {
+			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
+			status = "okay";
+			value = <1>;
+		};
 	};
 	
 	
@@ -599,7 +617,7 @@
 				MX6QDL_PAD_DISP0_DAT12__GPIO5_IO06	0x80000000		/* WIFI_LED_G */
 				MX6QDL_PAD_DISP0_DAT13__GPIO5_IO07	0x80000000		/* WIFI_LED_B */
 				MX6QDL_PAD_DISP0_DAT14__GPIO5_IO08	0x80000000		/* WIFI_LED_R */
-				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x80000000		/* PMU_RST_N */
+				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x1b8b1			/* PMU_RST_N */
 				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x80000000		/* GP_PMU_01 */
 				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17	0x80000000		/* GP_PMU_02 */
 			>;
@@ -667,7 +685,7 @@
 	pwm1 {
 		pinctrl_pwm1: pwm1grp {
 			fsl,pins = <
-				MX6QDL_PAD_SD1_DAT3__PWM1_OUT		0x1b0b1
+				MX6QDL_PAD_SD1_DAT3__PWM1_OUT		0x1b0f1
 			>;
 		};
 	};

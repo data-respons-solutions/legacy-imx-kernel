@@ -221,6 +221,24 @@
 			value = <1>;
 		};
 		
+		gpio-pmu1 {
+			gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			bidir;
+		};
+		
+		gpio-pmu2 {
+			gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+			value = <0>;
+		};
+		
+		gpio-pmu-rst {
+			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
+			status = "okay";
+			value = <1>;
+		};
+		
 	};
 	
 	leds {
@@ -535,6 +553,9 @@
 				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x1b0b1			/* Phy IRQ */
 				MX6QDL_PAD_ENET_TXD0__GPIO1_IO30	0x80000000		/* DISP0_PWR_EN */
 				MX6QDL_PAD_KEY_COL1__GPIO4_IO08		0x80000000		/* Backlight Enable */
+				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x1b8b1			/* PMU_RST_N */
+				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x80000000		/* GP_PMU_01 */
+				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17	0x80000000		/* GP_PMU_02 */
 			>;
 		};
 	};
