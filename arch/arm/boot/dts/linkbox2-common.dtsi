@@ -917,6 +917,10 @@
 	status = "disabled";
 };
 
+&pwm4 {
+	status = "disabled";
+};
+
 &epdc {
 	status = "disabled";
 };

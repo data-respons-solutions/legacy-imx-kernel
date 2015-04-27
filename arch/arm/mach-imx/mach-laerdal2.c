@@ -450,33 +450,32 @@ static void __init imx6q_add_gpio(void)
 	int ret, gpio_nr;
 	u32 val;
 	unsigned long flags;
+	enum of_gpio_flags of_flags;
 
 	user_gpios = of_find_node_by_name(NULL, "user-gpios");
 	if (user_gpios) {	/* Iterate nodes */
 		it = NULL;
 		while ((it = of_get_next_available_child(user_gpios, it))) {
-			pr_info("%s: Setting up gpio %s\n", __func__, of_node_full_name(it));
-			gpio_nr = of_get_gpio(it, 0);
+			gpio_nr = of_get_gpio_flags(it, 0, &of_flags);
 
 			if (!gpio_is_valid(gpio_nr)) {
 				pr_err("%s: Could not get gpio for %s\n", __func__, of_node_full_name(it));
 				continue;
 			}
-			if (of_property_read_u32(it, "value", &val) == 0)	/* Output pin */
+			if (of_property_read_u32(it, "value", &val) == 0)	{
 				flags = val ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
+			}
 			else
 				flags = GPIOF_DIR_IN;
 
-			if ( of_property_read_bool(it, "bidir"))
-				flags |= GPIOF_EXPORT_DIR_CHANGEABLE;
+			flags |= GPIOF_EXPORT_DIR_CHANGEABLE;
 
-
-			flags |= GPIOF_EXPORT;
 			ret = gpio_request_one(gpio_nr, flags, it->name);
 			if (ret < 0) {
 				pr_err("%s: Could not request gpio %d\n", __func__, gpio_nr);
 				continue;
 			}
+			pr_info("%s: Setting up gpio %s, active low %d\n", __func__, of_node_full_name(it), of_flags);
 		}
 		of_node_put(user_gpios);
 	}
@@ -498,11 +497,12 @@ static void __init imx6q_init_machine(void)
 	of_platform_populate(NULL, of_default_bus_match_table,
 					imx6q_auxdata_lookup, parent);
 
-	imx6q_add_gpio();
+
 	imx6q_enet_init();
 	imx_anatop_init();
 	imx6q_csi_mux_init();
 	cpu_is_imx6q() ?  imx6q_pm_init() : imx6dl_pm_init();
+	imx6q_add_gpio();
 }
 
 #define OCOTP_CFG3			0x440
@@ -612,6 +612,7 @@ static void __init imx6q_init_late(void)
 	if (of_machine_is_compatible("fsl,imx6q-sabreauto")
 		|| of_machine_is_compatible("fsl,imx6dl-sabreauto"))
 		imx6q_flexcan_fixup_auto();
+
 }
 
 static void __init imx6q_map_io(void)

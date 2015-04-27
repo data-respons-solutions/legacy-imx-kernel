@@ -38,21 +38,33 @@ static ssize_t pwm_buzzer_show(struct device *dev,  struct device_attribute *att
 
 static ssize_t pwm_buzzer_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t sz) {
 	struct pwm_buzzer_data *pb = dev_get_drvdata(dev);
-	ssize_t status = sz;
-	dev_info(dev, "%s: %s with %d ns\n", __func__, buf, pb->period);
+	size_t status = sz;
+	int ret;
+
 	mutex_lock(&sysfs_lock);
 	if (sysfs_streq(buf, "on")) {
 		pb->isOn = 1;
-		pwm_config(pb->pwm, pb->period/2, pb->period);
-		pwm_enable(pb->pwm);
+		if ((ret = pwm_config(pb->pwm, pb->period/2, pb->period)) < 0)
+		{
+			dev_err(dev, "%s: Could not configure PWM", __func__);
+			status = ret;
+			goto exit;
+		}
+		else
+		{
+			pwm_enable(pb->pwm);
+			dev_info(dev, "%s: ON with %d ns\n", __func__, pb->period);
+		}
 	}
 	else if (sysfs_streq(buf, "off")) {
 		pb->isOn = 0;
-		pwm_config(pb->pwm, 0, pb->period);
 		pwm_disable(pb->pwm);
+		pwm_config(pb->pwm, 0, pb->period);
 	}
 	else
 		status = -EINVAL;
+
+exit:
 	mutex_unlock(&sysfs_lock);
 	return status;
 }
@@ -90,9 +102,6 @@ static int pwm_buzzer_probe(struct platform_device *pdev)
 	}
 	pb->period = pwm_get_period(pb->pwm);
 	dev_info(&pdev->dev, "%s: got pwm %d, period %d ns\n", __func__, pb->pwmId, pb->period);
-
-	pwm_config(pb->pwm, 0, pb->period);
-	pwm_disable(pb->pwm);
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_buzz.attr);
 	platform_set_drvdata(pdev, pb);
 	return 0;
@@ -108,32 +117,13 @@ static int pwm_buzzer_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int pwm_buzzer_suspend(struct device *dev)
-{
-	struct pwm_buzzer_data *pb = dev_get_drvdata(dev);
 
-	pwm_disable(pb->pwm);
-	return 0;
-}
-
-static int pwm_buzzer_resume(struct device *dev)
-{
-	struct pwm_buzzer_data *pb = dev_get_drvdata(dev);
-	pwm_enable(pb->pwm);
-	return 0;
-}
-#else
-#define pwm_buzzer_suspend	NULL
-#define pwm_buzzer_resume	NULL
-#endif
 
 static struct of_device_id pwm_buzzer_of_match[] = {
 	{ .compatible = "pwm-buzzer", },
 	{ }
 };
 
-static SIMPLE_DEV_PM_OPS(pwm_buzzer_pm_ops, pwm_buzzer_suspend, pwm_buzzer_resume);
 
 MODULE_DEVICE_TABLE(of, pwm_buzzer_of_match);
 
@@ -141,7 +131,6 @@ static struct platform_driver pwm_buzzer_driver = {
 	.driver		= {
 		.name	= "pwm-buzzer",
 		.owner	= THIS_MODULE,
-		.pm	    = &pwm_buzzer_pm_ops,
 		.of_match_table = of_match_ptr(pwm_buzzer_of_match),
 	},
 	.probe		= pwm_buzzer_probe,
