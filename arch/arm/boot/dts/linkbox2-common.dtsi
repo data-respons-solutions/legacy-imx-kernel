@@ -92,7 +92,7 @@
 	};
 
 	pwm-manikin@0 {
-		compatible = "pwm-buzzer";
+		compatible = "modulated-pwm";
 		pwms = <&pwm1 0 40000>;
 		status = "okay";
 	};
