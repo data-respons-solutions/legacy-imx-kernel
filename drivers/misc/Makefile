@@ -57,3 +57,4 @@ obj-$(CONFIG_SRAM)		+= sram.o
 obj-y				+= mic/
 obj-$(CONFIG_GENWQE)		+= genwqe/
 obj-$(CONFIG_PWM_BUZZER) += pwm_buzzer.o
+obj-$(CONFIG_MODULATED_PWM) += modulated_pwm.o
