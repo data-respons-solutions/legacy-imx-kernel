@@ -201,7 +201,7 @@
 			status = "okay";
 		};
 		
-		gpio-pmu-reset {
+		gpio-pmu-rst {
 			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
 			status = "okay";
 			value = <1>;
@@ -267,11 +267,7 @@
 			value = <0>;
 		};
 		
-		gpio-pmu-rst {
-			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <1>;
-		};
+		
 	};
 	
 	
@@ -368,16 +364,12 @@
 		spi-max-frequency = <20000000>;
 		reg = <0>;
 		partition@0 {
-			label = "u-boot";
-			reg = <0 0x000C0000>;
+			label = "user";
+			reg = <0 0x00300000>;
 		};
-		partition@0x000C0000 {
-			label = "u-boot-env";
-			reg = <0x000C0000 0x00040000>;
-		};
-		partition@0x00100000 {
+		partition@0x00300000 {
 			label = "factory";
-			reg = <0x00100000 0x00300000>;
+			reg = <0x00300000 0x00100000>;
 		};
 	};
 };
@@ -755,6 +747,7 @@
 				MX6QDL_PAD_SD2_DAT3__AUD4_TXC		0x130b0
 				MX6QDL_PAD_SD2_DAT2__AUD4_TXD		0x110b0
 				MX6QDL_PAD_SD2_DAT1__AUD4_TXFS		0x130b0
+				MX6QDL_PAD_SD2_CMD__AUD4_RXC		0x130b0
 			>;
 		};
 	};
@@ -964,3 +957,6 @@
 	status = "okay";
 };
 
+&ipu1 {
+	status = "disabled";
+};
