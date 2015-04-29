@@ -50,21 +50,13 @@ static ssize_t modulated_pwm_store(struct device *dev,
 	}
 
 	duty_period = ((long) pb->period * val) / 255;
-	if (0 == duty_period) {
-		pwm_disable(pb->pwm);
-		pb->onValue = 0;
-		goto exit;
-	}
+
 	if ((ret = pwm_config(pb->pwm, duty_period, pb->period)) < 0) {
 		dev_err(dev, "%s: Could not configure PWM", __func__);
 		status = ret;
 		goto exit;
 	} else {
-		if (pb->onValue == 0)
-			pwm_enable(pb->pwm);
 		pb->onValue = val;
-		dev_info(dev, "%s: ON with d=%d, p=%d ns\n", __func__, duty_period,
-				pb->period);
 	}
 
 	exit: mutex_unlock(&sysfs_lock);
@@ -78,6 +70,7 @@ static int modulated_pwm_probe(struct platform_device *pdev)
 	struct modulated_pwm_data *pb;
 	int ret;
 	struct device_node *np = pdev->dev.of_node;
+	bool inverted = of_property_read_bool(np, "inverted");
 
 	dev_dbg(&pdev->dev, "%s:\n", __func__);
 
@@ -97,13 +90,17 @@ static int modulated_pwm_probe(struct platform_device *pdev)
 
 	pb->pwm = devm_of_pwm_get(&pdev->dev, np, NULL);
 	if (IS_ERR(pb->pwm)) {
-		dev_err(&pdev->dev, "unable to request PWM for buzzer\n");
+		dev_err(&pdev->dev, "unable to request PWM\n");
 		return PTR_ERR(pb->pwm);
 	}
 	pb->period = pwm_get_period(pb->pwm);
 	dev_info(&pdev->dev, "%s: got pwm %d, period %d ns\n", __func__, pb->pwmId,
 			pb->period);
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_period.attr);
+	if (inverted)
+		pwm_set_polarity(pb->pwm, PWM_POLARITY_INVERSED);
+	pwm_config(pb->pwm, 0, pb->period);
+	pwm_enable(pb->pwm);
 	platform_set_drvdata(pdev, pb);
 	return 0;
 }

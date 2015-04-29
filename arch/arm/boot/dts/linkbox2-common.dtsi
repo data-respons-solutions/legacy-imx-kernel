@@ -9,6 +9,7 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/pwm/pwm.h>
 / {
 	aliases {
 		mmc0 = &usdhc3;
@@ -95,6 +96,7 @@
 		compatible = "modulated-pwm";
 		pwms = <&pwm1 0 40000>;
 		status = "okay";
+		inverted;
 	};
 	
 	gpio-keys {
