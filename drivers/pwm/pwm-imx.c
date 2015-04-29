@@ -54,6 +54,7 @@ struct imx_chip {
 	void __iomem	*mmio_base;
 
 	struct pwm_chip	chip;
+	enum pwm_polarity polarity;
 
 	int (*config)(struct pwm_chip *chip,
 		struct pwm_device *pwm, int duty_ns, int period_ns);
@@ -176,6 +177,8 @@ static int imx_pwm_config_v2(struct pwm_chip *chip,
 		MX3_PWMCR_DOZEEN | MX3_PWMCR_WAITEN |
 		MX3_PWMCR_DBGEN | MX3_PWMCR_CLKSRC_IPG_HIGH;
 
+	if (imx->polarity == PWM_POLARITY_INVERSED)
+		cr |= (1 << 18);
 	if (enable)
 		cr |= MX3_PWMCR_EN;
 
@@ -190,6 +193,8 @@ static void imx_pwm_set_enable_v2(struct pwm_chip *chip, bool enable)
 	u32 val;
 
 	val = readl(imx->mmio_base + MX3_PWMCR);
+	if (imx->polarity == PWM_POLARITY_INVERSED)
+		val |= (1 << 18);
 
 	if (enable)
 		val |= MX3_PWMCR_EN;
@@ -239,10 +244,19 @@ static void imx_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	clk_disable_unprepare(imx->clk_per);
 }
 
+int imx_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm, enum pwm_polarity polarity)
+{
+	struct imx_chip *imx = to_imx_chip(chip);
+	dev_dbg (pwm->chip->dev, "%s: to %d", __func__, polarity);
+	imx->polarity = polarity;
+	return 0;
+}
+
 static struct pwm_ops imx_pwm_ops = {
 	.enable = imx_pwm_enable,
 	.disable = imx_pwm_disable,
 	.config = imx_pwm_config,
+	.set_polarity = imx_pwm_set_polarity,
 	.owner = THIS_MODULE,
 };
 
@@ -301,6 +315,7 @@ static int imx_pwm_probe(struct platform_device *pdev)
 		return PTR_ERR(imx->clk_ipg);
 	}
 
+	imx->polarity = PWM_POLARITY_NORMAL;
 	imx->chip.ops = &imx_pwm_ops;
 	imx->chip.dev = &pdev->dev;
 	imx->chip.base = -1;
