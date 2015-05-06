@@ -151,7 +151,7 @@ static void imx_pcm1681_set_amps(struct imx_pcm1681_data *priv, bool off)
 	int n;
 	dev_dbg(priv->card.dev, "%s off = %d\n", __func__, off);
 	for (n=0; n < priv->num_shutdown_gpios; n++) {
-		if (priv->shutdown_gpios[n].flags == OF_GPIO_ACTIVE_LOW)
+		if (priv->shutdown_gpios[n].flags & OF_GPIO_ACTIVE_LOW)
 			gpio_set_value(priv->shutdown_gpios[n].gpio_nr, off ? 0 : 1 );
 		else
 			gpio_set_value(priv->shutdown_gpios[n].gpio_nr, off ? 1 : 0 );

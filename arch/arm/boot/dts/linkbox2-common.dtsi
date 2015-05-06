@@ -257,11 +257,6 @@
 			value = <0>;
 		};
 		
-		gpio-pmu1 {
-			gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>;
-			status = "okay";
-			bidir;
-		};
 		
 		gpio-pmu2 {
 			gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
@@ -269,6 +264,11 @@
 			value = <0>;
 		};
 		
+		gpio-5wsd {
+		  gpios = <&gpio4 25 GPIO_ACTIVE_LOW>;
+		  status = "okay";
+		  value = <0>;
+		};
 		
 	};
 	
@@ -332,7 +332,7 @@
 		model = "pcm1681";
 		cpu-dai = <&esai>;
 		audio-codec = <&codec_pcm1681>;
-		amp-shutdown-gpios = <&gpio4 25 GPIO_ACTIVE_LOW &gpio1 5 GPIO_ACTIVE_HIGH>;
+		amp-shutdown-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 		audio-routing = 
 			"OUT1", "VOUT1",
 			"OUT2", "VOUT2",
@@ -376,13 +376,22 @@
 	};
 };
 
-
 &ecspi2 {
 	fsl,spi-num-chipselects = <1>;
 	cs-gpios = <&gpio5 12 0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi2>;
 	status = "okay";
+	
+	mpu: mpu@0 {
+	   #address-cells = <1>;
+       #size-cells = <1>;
+	   compatible = "datarespons,lm_mpu";
+	   irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+	   spi-max-frequency = <100000>;
+	   reg = <0>;
+	   has-w1;
+	};
 };
 
 &fec {
@@ -612,7 +621,7 @@
 				MX6QDL_PAD_DISP0_DAT13__GPIO5_IO07	0x80000000		/* WIFI_LED_B */
 				MX6QDL_PAD_DISP0_DAT14__GPIO5_IO08	0x80000000		/* WIFI_LED_R */
 				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x1b8b1			/* PMU_RST_N */
-				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x80000000		/* GP_PMU_01 */
+				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x1b000  		/* GP_PMU_01 */
 				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17	0x80000000		/* GP_PMU_02 */
 			>;
 		};
