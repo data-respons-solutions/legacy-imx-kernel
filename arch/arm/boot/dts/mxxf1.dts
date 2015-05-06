@@ -1,0 +1,61 @@
+/*
+ * Copyright 2015 DATA RESPONS AS
+ * Copyright 2012 Freescale Semiconductor, Inc.
+ * Copyright 2011 Linaro Ltd.
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+/dts-v1/;
+
+#include "imx6q.dtsi"
+#include "mxxf1-common.dtsi"
+
+/ {
+    model = "DR imx6q Maritime Computer";
+    compatible = "datarespons,mxxf1", "fsl,imx6q";
+
+    backlight  {
+        compatible = "pwm-backlight";
+        pwms = <&pwm1 0 5000000>;
+        brightness-levels = < 0 1 2 3 4 5 6 8  11 16  23  32 48
+                              64 81 100 121 144 169 196 225
+                              256 289 324 361 400 441 484 529
+                              576 625 676 729 784 841 900 961
+                              1024 1089 1156 1225 1296 1369 1444 1521
+                              1600 1681 1764 1849 1936 2025 2116 2209 >;
+        default-brightness-level = <32>;
+        enable-gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;
+    };
+
+
+};
+
+
+
+&ldb {
+    lvds-channel@0 {
+        crtc = "ipu2-di0";
+        primary;
+    };
+
+    lvds-channel@1 {
+        crtc = "ipu2-di1";
+    };
+};
+
+&mxcfb1 {
+    status = "okay";
+};
+
+&mxcfb2 {
+    status = "disabled";
+};
+
+
+
