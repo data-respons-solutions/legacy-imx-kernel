@@ -673,7 +673,7 @@ flash: m25p80@0 {
 
 
 &pcie {
-    reset-gpio = <&gpio7 12 0>;
+    reset-gpio = <&gpio7 12 GPIO_ACTIVE_LOW>;
     wake-up-gpio = <&gpio5 20 0>;
     status = "okay";
 };
