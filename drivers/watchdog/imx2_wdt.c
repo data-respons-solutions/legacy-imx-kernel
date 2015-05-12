@@ -241,6 +241,17 @@ static long imx2_wdt_ioctl(struct file *file, unsigned int cmd,
 		imx2_wdt_ping();
 		return 0;
 
+	case WDIOC_SETOPTIONS:
+			if (get_user(new_value, p))
+				return -EFAULT;
+			if (new_value & WDIOS_ENABLECARD)
+				imx2_wdt_start();
+			else if (new_value & WDIOS_DISABLECARD)
+				imx2_wdt_stop();
+			else
+				return -EINVAL;
+			return 0;
+
 	case WDIOC_SETTIMEOUT:
 		if (get_user(new_value, p))
 			return -EFAULT;
