@@ -18,7 +18,7 @@
 
 / {
     model = "DR imx6q Maritime Computer";
-    compatible = "datarespons,mxxf1", "fsl,imx6q";
+    compatible = "datarespons,laerdal2", "fsl,imx6q";
 
     backlight  {
         compatible = "pwm-backlight";
