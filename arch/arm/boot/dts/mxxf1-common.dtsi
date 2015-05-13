@@ -196,6 +196,12 @@
 			value = <0>;
 		};
 		
+        gpio-phy-rst {
+            gpios = <&gpio1 25 GPIO_ACTIVE_LOW>;
+            status = "okay";
+            value = <1>;
+        };
+		
 	};
 
 };
@@ -233,6 +239,18 @@ flash: m25p80@0 {
 	pinctrl-0 = <&pinctrl_enet_lm>;
 	phy-mode = "rgmii";
 	status = "okay";
+	phy-handle = <&arphy>;
+	mdio {
+	   #address-cells = <1>;
+       #size-cells = <0>;
+	   arphy: ethernet-phy@1 {
+	       compatible = "ethernet-phy-ieee802.3-c22";
+	       reg = <0x1>;
+	       max-speed = <1000>;
+	       interrupt-parent = <&gpio1>;
+	       interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+	   };
+	};
 };
 
 
@@ -445,6 +463,8 @@ flash: m25p80@0 {
                 MX6QDL_PAD_NANDF_WP_B__GPIO6_IO09 0x80000000
                 MX6QDL_PAD_GPIO_17__GPIO7_IO12  0x80000000
                 MX6QDL_PAD_CSI0_DATA_EN__GPIO5_IO20 0x80000000
+                MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25  0x80000000      /* Phy reset (low) */
+                MX6QDL_PAD_ENET_RXD1__GPIO1_IO26 0x80000000         /* Phy IRQ (low) */
 
             >;
         };
