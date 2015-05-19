@@ -52,6 +52,10 @@ static int flexcan_stby_gpio;
 static int flexcan0_en;
 static int flexcan1_en;
 
+#ifndef __KERNEL__
+#define __init
+#endif
+
 static void imx6q_fec_sleep_enable(int enabled)
 {
 	struct regmap *gpr;
@@ -481,9 +485,79 @@ static void __init imx6q_add_gpio(void)
 	}
 }
 
+static int imx_get_boot_mode_reg(u32 *cfg, u32* bmr)
+{
+	struct device_node *np;
+	void __iomem *src_base;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx51-src");
+	if (!np)
+		return 0;
+	src_base = of_iomap(np, 0);
+	WARN_ON(!src_base);
+	if (!src_base)
+		return -ENODEV;
+
+	*cfg = readl_relaxed(src_base + 0x04);
+	*bmr = readl_relaxed(src_base + 0x1c);
+	pr_info("%s: boot mode 0x%08x\n", __func__, *bmr);
+	pr_info("%s: cfg reg 0x%08x\n", __func__, *cfg);
+	return 0;
+}
+
+static int __init imx6q_set_wdog_status(struct device_node *np, bool ok)
+{
+	struct property *status;
+	int avail = of_device_is_available(np);
+	pr_debug("%s: %s to %d\n", __func__, of_node_full_name(np), ok);
+	if ( (avail && ok) || (!avail && !ok) )
+		return 0;
+	status = kzalloc(sizeof(*status)+20, GFP_KERNEL);
+	status->name = kstrdup("status", GFP_KERNEL);
+	status->value = status + 1;
+	if (ok)
+		strcpy(status->value, "okay");
+	else
+		strcpy(status->value, "disabled");
+	status->length = strlen(status->value) + 1;
+
+	pr_info("%s: Setting status for %s to %s\n", __func__, of_node_full_name(np), (char*)status->value);
+	of_update_property(np, status);
+	return 0;
+}
+
+static struct device_node* __init imx6q_wdog_started(void)
+{
+	static void __iomem *wdog_base;
+	struct device_node *np = NULL;
+	u32 wdog_wcr;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx21-wdt");
+	if (np) {
+		wdog_base = of_iomap(np, 0);
+		wdog_wcr = __raw_readw(wdog_base);
+		if (wdog_wcr & 0x04) {
+			return np;
+		}
+		else {
+			np = of_find_compatible_node(np, NULL, "fsl,imx21-wdt");
+			if (np) {
+				wdog_base = of_iomap(np, 0);
+				wdog_wcr = __raw_readw(wdog_base);
+				if (wdog_wcr & 0x04) {
+					return np;
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
 static void __init imx6q_init_machine(void)
 {
 	struct device *parent;
+	struct device_node *np, *np2;
+	u32 sbmr1, sbmr2;
 
 	imx_print_silicon_rev(cpu_is_imx6dl() ? "i.MX6DL" : "i.MX6Q",
 			      imx_get_soc_revision());
@@ -494,6 +568,21 @@ static void __init imx6q_init_machine(void)
 	if (parent == NULL)
 		pr_warn("failed to initialize soc device\n");
 
+	np = imx6q_wdog_started();
+
+	if (np) {
+		pr_info("%s: Found bootloader activated watchdog %s - adjusting DT\n", __func__, of_node_full_name(np));
+		imx6q_set_wdog_status(np, true);
+		np2 = of_find_compatible_node(NULL, NULL, "fsl,imx21-wdt");
+		if (np == np2)
+			np2 = of_find_compatible_node(np2, NULL, "fsl,imx21-wdt");
+		if  (np2 ) {
+			imx6q_set_wdog_status(np2, false);
+			of_node_put(np2);
+		}
+		of_node_put(np);
+	}
+
 	of_platform_populate(NULL, of_default_bus_match_table,
 					imx6q_auxdata_lookup, parent);
 
@@ -503,6 +592,7 @@ static void __init imx6q_init_machine(void)
 	imx6q_csi_mux_init();
 	cpu_is_imx6q() ?  imx6q_pm_init() : imx6dl_pm_init();
 	imx6q_add_gpio();
+	imx_get_boot_mode_reg(&sbmr1, &sbmr2);
 }
 
 #define OCOTP_CFG3			0x440
