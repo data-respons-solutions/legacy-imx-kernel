@@ -201,8 +201,34 @@
             status = "okay";
             value = <1>;
         };
+        
+        gpio-hw0 {
+            gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+            status = "okay";
+        };
+        
+        gpio-hw1 {
+            gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+            status = "okay";
+        };
+        
+        gpio-hw2 {
+            gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+            status = "okay";
+        };
+        
+        gpio-hw3 {
+            gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+            status = "okay";
+        };
 		
 	};
+	
+	pwm-buzzer@0 {
+        compatible = "pwm-buzzer";
+        pwms = <&pwm3 0 434782>;
+        status = "okay";
+    };
 
 };
 
@@ -465,7 +491,10 @@ flash: m25p80@0 {
                 MX6QDL_PAD_CSI0_DATA_EN__GPIO5_IO20 0x80000000
                 MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25  0x80000000      /* Phy reset (low) */
                 MX6QDL_PAD_ENET_RXD1__GPIO1_IO26 0x80000000         /* Phy IRQ (low) */
-
+                MX6QDL_PAD_SD2_DAT0__GPIO1_IO15 0x00012000
+                MX6QDL_PAD_SD2_DAT1__GPIO1_IO14 0x00012000
+                MX6QDL_PAD_SD2_DAT2__GPIO1_IO13 0x00012000
+                MX6QDL_PAD_SD2_DAT3__GPIO1_IO12 0x00012000
             >;
         };
     };
@@ -536,10 +565,10 @@ flash: m25p80@0 {
 		};
 	};
 	
-	pwm2 {
-		pinctrl_pwm2: pwm2grp {
+	pwm3 {
+		pinctrl_pwm3: pwm3grp {
 			fsl,pins = <
-				MX6QDL_PAD_SD1_DAT2__PWM2_OUT 0x1b0b1
+				MX6QDL_PAD_SD1_DAT1__PWM3_OUT 0x1b0b1
 			>;
 		};
 	};
@@ -757,5 +786,9 @@ flash: m25p80@0 {
 };
 
 &sata {
+    status = "okay";
+};
+
+&pwm3 {
     status = "okay";
 };
