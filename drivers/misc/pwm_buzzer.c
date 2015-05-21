@@ -16,7 +16,6 @@
 struct pwm_buzzer_data {
 	struct pwm_device	*pwm;
 	struct device		*dev;
-	unsigned int		pwmId;
 	unsigned int		period;
 	unsigned int		isOn;
 };
@@ -101,7 +100,7 @@ static int pwm_buzzer_probe(struct platform_device *pdev)
 		return PTR_ERR(pb->pwm);
 	}
 	pb->period = pwm_get_period(pb->pwm);
-	dev_info(&pdev->dev, "%s: got pwm %d, period %d ns\n", __func__, pb->pwmId, pb->period);
+	dev_info(&pdev->dev, "%s: got pwm %d, period %d ns\n", __func__, pb->pwm->pwm, pb->period);
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_buzz.attr);
 	platform_set_drvdata(pdev, pb);
 	return 0;
