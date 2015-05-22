@@ -568,8 +568,8 @@
     pinctrl-0 = <&pinctrl_i2c3>;
     status = "okay";
 
-	board_temp: tmp102@70 {
-		compatible = "ti,tmp102";
+	board_temp: tmp103@70 {
+		compatible = "ti,tmp103";
 		reg = <0x70>;
 	};
 	
