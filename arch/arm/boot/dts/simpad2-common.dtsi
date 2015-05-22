@@ -277,9 +277,10 @@
 	};
 	
 	vibra@0 {
-		compatible = "pwm-buzzer";
-		pwms = <&pwm2 0 50000>;
+		compatible = "modulated-pwm";
+		pwms = <&pwm2 0 1000000>;
 		status = "okay";
+		inverted;
 	};
 };
 
@@ -866,7 +867,7 @@
 &pwm2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm2>;
-	status = "enabled";
+	status = "okay";
 };
 
 &epdc {
