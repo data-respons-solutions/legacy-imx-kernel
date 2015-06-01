@@ -14,6 +14,7 @@
 	aliases {
 		mmc0 = &usdhc3;
 		mmc1 = &usdhc4;
+		rtc0 = &mpu;
 	};
 
 	memory {
@@ -388,7 +389,7 @@
        #size-cells = <1>;
 	   compatible = "datarespons,lm_mpu";
 	   irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
-	   spi-max-frequency = <100000>;
+	   spi-max-frequency = <4000000>;
 	   reg = <0>;
 	   has-w1;
 	};
