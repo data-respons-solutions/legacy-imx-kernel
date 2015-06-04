@@ -1331,7 +1331,8 @@ sdioh_start(sdioh_info_t *sd, int stage)
 		   2.6.27. The implementation prior to that is buggy, and needs broadcom's
 		   patch for it
 		*/
-		if ((ret = sdio_reset_comm(sd->func[0]->card))) {
+		if (0) {
+		/* if ((ret = sdio_reset_comm(sd->func[0]->card))) { */
 			sd_err(("%s Failed, error = %d\n", __FUNCTION__, ret));
 			return ret;
 		}
