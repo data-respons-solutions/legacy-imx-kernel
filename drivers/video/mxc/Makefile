@@ -8,3 +8,4 @@ obj-$(CONFIG_FB_MXC_EINK_PANEL)             += mxc_epdc_fb.o
 obj-$(CONFIG_FB_MXS_SII902X) += mxsfb_sii902x.o
 obj-$(CONFIG_FB_MXC_DCIC) += mxc_dcic.o
 obj-$(CONFIG_HANNSTAR_CABC) += hannstar_cabc.o
+obj-$(CONFIG_FB_MXC_SCALING_FB) +=  mxc_ipuv3_scaling_fb.o
