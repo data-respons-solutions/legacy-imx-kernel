@@ -17,6 +17,10 @@ config FB_MXC
 config FB_MXC_SYNC_PANEL
 	depends on FB_MXC
 	tristate "Synchronous Panel Framebuffer"
+	
+config FB_MXC_SCALING_FB
+	depends on FB_MXC_SYNC_PANEL
+	tristate "Synchronous Panel Framebuffer with scaling through IPU"
 
 config FB_MXC_LDB
 	tristate "MXC LDB"
