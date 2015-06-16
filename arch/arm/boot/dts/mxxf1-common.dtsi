@@ -144,26 +144,7 @@
     };
 
 	
-    mxcfb1: fb@0 {
-        compatible = "fsl,mxc_sdc_fb";
-        disp_dev = "ldb";
-        interface_pix_fmt = "RGB24";
-        default_bpp = <32>;
-        int_clk = <0>;
-        late_init = <0>;
-        status = "disabled";
-    };
 
-    mxcfb2: fb@1 {
-        compatible = "fsl,mxc_sdc_fb";
-        disp_dev = "hdmi";
-        interface_pix_fmt = "RGB24";
-        mode_str ="1920x1080M@60";
-        default_bpp = <24>;
-        int_clk = <0>;
-        late_init = <0>;
-        status = "disabled";
-    };
 
 	user-gpios {
 	
@@ -681,6 +662,8 @@ flash: m25p80@0 {
         fsl,data-mapping = "spwg";
         fsl,data-width = <24>;
         status = "okay";
+        primary;
+        crtc = "ipu1-di0";
 
         display-timings {
             native-mode = <&timing0>;
@@ -701,9 +684,8 @@ flash: m25p80@0 {
     lvds-channel@1 {
         fsl,data-mapping = "spwg";
         fsl,data-width = <24>;
-        primary;
-        status = "okay";
-
+        status = "disabled";
+        crtc = "ipu2-di1";
         display-timings {
             native-mode = <&timing1>;
             timing1: hsd100pxn1 {
