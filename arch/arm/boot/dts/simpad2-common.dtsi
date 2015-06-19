@@ -40,7 +40,6 @@
 			regulator-max-microvolt = <3300000>;
 			gpio = <&gpio3 26 0>;
 			enable-active-low;
-			regulator-boot-on;
 			regulator-always-on;
 		};
 		
@@ -67,7 +66,8 @@
 			startup-delay-us = <300>;
 			regulator-always-on;
 		};
-/*		
+		
+		/*
 		reg_bt_en: bt_enable {
 			compatible = "regulator-fixed";
 			regulator-name = "reg_bt_enable";
@@ -77,8 +77,10 @@
 			enable-active-high;
 			vin-supply = <&reg_wifi_io>;
 			startup-delay-us = <300>;
+			regulator-always-on;
 		};
-*/	
+		*/
+	
 		reg_usb_otg_vbus: usb_otg_vbus {
 			compatible = "regulator-fixed";
 			regulator-name = "usb_otg_vbus";
@@ -161,10 +163,11 @@
 			status = "okay";
 			value = <1>;
 		};
+		
 		gpio-bt-enable {
 			gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
 			status = "okay";
-			value = <1>;
+			value = <0>;
 		};
 		
 		gpio-spinor-wp {
