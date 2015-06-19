@@ -245,6 +245,7 @@
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	cd-gpios = <&gpio1 2 0>;
 	status = "okay";
+	compatible = "fsl,imx6sl-usdhc";
 };
 
 &usdhc2 {
@@ -252,6 +253,7 @@
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	non-removable;
 	status = "okay";
+	compatible = "fsl,imx6sl-usdhc";
 };
 
 &usdhc3 {
@@ -259,4 +261,5 @@
 	pinctrl-0 = <&pinctrl_usdhc3>;
 	cd-gpios = <&gpio3 9 0>;
 	status = "okay";
+	compatible = "fsl,imx6sl-usdhc";
 };
