@@ -32,6 +32,17 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-always-on;
 		};
+		
+		reg_wifi_io: regulator@2 {
+            compatible = "regulator-fixed";
+            reg = <2>;
+            regulator-name = "wifi-io";
+            regulator-min-microvolt = <3300000>;
+            regulator-max-microvolt = <3300000>;
+            regulator-always-on;
+            gpio = <&gpio5 31 0>;
+            enable-active-high;
+        };
 	};
 
 	sound {
@@ -93,6 +104,7 @@
 				MX6QDL_PAD_ENET_TXD1__GPIO1_IO29 0x80000000 /* WL_HOST_WAKE */
 				MX6QDL_PAD_ENET_TXD0__GPIO1_IO30 0x80000000 /* WL_WAKE */
 				MX6QDL_PAD_EIM_D29__GPIO3_IO29   0x80000000
+				MX6QDL_PAD_CSI0_DAT13__GPIO5_IO31     0x0f0b0 /* Wifo IO */
 			>;
 		};
 
