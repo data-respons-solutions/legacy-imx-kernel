@@ -3696,12 +3696,12 @@ static bool brcmf_sdio_bus_watchdog(struct brcmf_sdio *bus)
 			if (bus->activity) {
 				bus->activity = false;
 				brcmf_sdio_wd_timer(bus, BRCMF_WD_POLL_MS);
-			} else {
+			} /* else {
 				brcmf_dbg(SDIO, "idle\n");
 				sdio_claim_host(bus->sdiodev->func[1]);
 				brcmf_sdio_bus_sleep(bus, true, false);
 				sdio_release_host(bus->sdiodev->func[1]);
-			}
+			} */
 		}
 	}
 
