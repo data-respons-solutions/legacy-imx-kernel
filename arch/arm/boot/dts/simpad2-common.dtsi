@@ -51,10 +51,10 @@
 			gpio = <&gpio6 11 0>;
 			enable-active-high;
 			vin-supply = <&reg_wifi>;
-			startup-delay-us = <100>;
+			startup-delay-us = <0>;
 			regulator-always-on;
 		};
-		
+	
 		reg_wifi_en: wifi_enable {
 			compatible = "regulator-fixed";
 			regulator-name = "reg_wifi_enable";
@@ -164,6 +164,13 @@
 			value = <1>;
 		};
 		
+		/*
+		gpio-wifi-enable {
+            gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+            status = "okay";
+            value = <0>;
+        };
+        */
 		gpio-bt-enable {
 			gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
 			status = "okay";
@@ -213,13 +220,13 @@
 		};
 		
 		gpio-bt-host-wake {
-			gpios = <&gpio6 7 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio6 7 GPIO_ACTIVE_HIGH>;
 			status = "okay";
 			bidir;
 		};
 		
 		gpio-bt-dev-wake {
-			gpios = <&gpio6 8 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio6 8 GPIO_ACTIVE_HIGH>;
 			status = "okay";
 			value = <1>;
 		};
