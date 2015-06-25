@@ -325,6 +325,16 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi2>;
 	status = "okay";
+	
+    mpu: mpu@0 {
+       #address-cells = <1>;
+       #size-cells = <1>;
+       compatible = "datarespons,lm_mpu";
+       irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+       spi-max-frequency = <4000000>;
+       reg = <0>;
+       has-w1;
+    };
 };
 
 &fec {
@@ -547,14 +557,14 @@
 				MX6QDL_PAD_GPIO_18__GPIO7_IO13		0x0001b8b1 		/* GP--CTP_nINT (touch interrupt */
 				MX6QDL_PAD_GPIO_19__GPIO4_IO05		0x80000000		/* DC_IN_nFLG (adapter detect) */
 				MX6QDL_PAD_NANDF_CS0__GPIO6_IO11	0x80000000		/* GP--WL_VDDIO_EN */
-				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x1b8b1			/* GP--BT_WAKE */
+				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x80000000		/* GP--BT_WAKE */
 				MX6QDL_PAD_NANDF_RB0__GPIO6_IO10	0x0001b000		/* PMIC_INT_B */
 				MX6QDL_PAD_NANDF_D1__GPIO2_IO01		0x0001b000		/* ACCL_INT_IN */
 				MX6QDL_PAD_NANDF_D3__GPIO2_IO03		0x80000000		/* WL_REG_ON (WiFI power) */
 				MX6QDL_PAD_NANDF_D4__GPIO2_IO04		0x80000000		/* BT_REG_ON (Bluetooth power) */
 				MX6QDL_PAD_NANDF_D5__GPIO2_IO05		0x0001b000		/* WL_IRQ (WiFI interrupt */
 				MX6QDL_PAD_NANDF_D6__GPIO2_IO06		0x80000000		/* GP--WL_HOST_WAKE */
-				MX6QDL_PAD_NANDF_D7__GPIO2_IO07		0x1b8b1			/* GP--WL_DEV_WAKE */
+				MX6QDL_PAD_NANDF_D7__GPIO2_IO07		0x80000000		/* GP--WL_DEV_WAKE */
 				MX6QDL_PAD_EIM_A25__GPIO5_IO02		0x0001b000		/* Recovery_setting (control boot) */
 				MX6QDL_PAD_EIM_D20__GPIO3_IO20		0x80000000		/* GP--nWP--flash (SPI flash WP) */
 				MX6QDL_PAD_EIM_D23__GPIO3_IO23		0x80000000		/* GP--CHarger_ISET */
@@ -572,7 +582,7 @@
 				MX6QDL_PAD_ENET_TXD0__GPIO1_IO30	0x80000000		/* DISP0_PWR_EN */
 				MX6QDL_PAD_KEY_COL1__GPIO4_IO08		0x80000000		/* Backlight Enable */
 				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x1b8b1			/* PMU_RST_N */
-				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x80000000		/* GP_PMU_01 */
+				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x1b0b1		    /* GP_PMU_01 */
 				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17	0x80000000		/* GP_PMU_02 */
 			>;
 		};
