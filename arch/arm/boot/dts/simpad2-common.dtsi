@@ -488,7 +488,7 @@
 };
 
 &i2c1 {
-    clock-frequency = <100000>;
+    clock-frequency = <400000>;
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_i2c1>;
     status = "okay";
@@ -500,9 +500,9 @@
 		shared-lrclk;
        };
        
-    mma8451@1d {
+    mma8451@1c {
 		compatible = "fsl,mma8451";
-		reg = <0x1d>;
+		reg = <0x1c>;
 		position = <0>;
 		vdd-supply = <&sw2_reg>;
 		vddio-supply = <&vgen4_reg>;
