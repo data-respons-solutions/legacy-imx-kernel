@@ -18,6 +18,7 @@
 #include <linux/etherdevice.h>
 
 #define AT803X_INTR_ENABLE			0x12
+#define AT803X_INER_INIT			0xec00
 #define AT803X_INTR_STATUS			0x13
 #define AT803X_WOL_ENABLE			0x01
 #define AT803X_DEVICE_ADDR			0x03
@@ -191,6 +192,32 @@ static int at803x_config_init(struct phy_device *phydev)
 	return 0;
 }
 
+static int at803x_ack_interrupt(struct phy_device *phydev)
+{
+	int err;
+
+	err = phy_read(phydev, AT803X_INTR_STATUS);
+
+	return (err < 0) ? err : 0;
+}
+
+static int at803x_config_intr(struct phy_device *phydev)
+{
+	int err;
+	int value;
+
+	value = phy_read(phydev, AT803X_INTR_ENABLE);
+
+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
+		err = phy_write(phydev, AT803X_INTR_ENABLE,
+				value | AT803X_INER_INIT);
+	else
+		err = phy_write(phydev, AT803X_INTR_ENABLE, 0);
+
+	return err;
+}
+
+
 static struct phy_driver at803x_driver[] = {
 {
 	/* ATHEROS 8035 */
@@ -240,6 +267,8 @@ static struct phy_driver at803x_driver[] = {
 	.flags		= PHY_HAS_INTERRUPT,
 	.config_aneg	= genphy_config_aneg,
 	.read_status	= genphy_read_status,
+	.ack_interrupt = at803x_ack_interrupt,
+	.config_intr = at803x_config_intr,
 	.driver		= {
 		.owner = THIS_MODULE,
 	},
