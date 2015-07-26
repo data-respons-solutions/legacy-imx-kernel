@@ -21,6 +21,15 @@
 		reg = <0x10000000 0x40000000>;
 	};
 
+    clocks {
+        /* 27MHz reference crystal */
+        audio_ref: oscillator {
+            compatible = "fixed-clock";
+            #clock-cells = <0>;
+            clock-frequency = <27000000>;
+        };
+    };
+    
 	regulators {
 		compatible = "simple-bus";
 
@@ -41,7 +50,7 @@
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
 			gpio = <&gpio3 26 0>;
-			enable-active-low;
+			enable-active-high;
 			regulator-boot-on;
 			regulator-always-on;
 		};
@@ -391,7 +400,6 @@
 	   irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
 	   spi-max-frequency = <4000000>;
 	   reg = <0>;
-	   has-w1;
 	};
 };
 
@@ -579,6 +587,29 @@
 		reg = <0x4c>;
 	};
 	
+   si5351: clock-generator {
+        compatible = "silabs,si5351a-msop";
+        reg = <0x60>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        #clock-cells = <1>;
+    
+        /* connect xtal input to 27MHz reference */
+        clocks = <&audio_ref>;
+    
+        /* connect xtal input as source of pll0 and pll1 */
+        silabs,pll-source = <0 0>, <1 0>;
+    
+        clkout0 {
+            reg = <0>;
+            silabs,drive-strength = <8>;
+            silabs,multisynth-source = <0>;
+            silabs,clock-source = <0>;
+            silabs,pll-master;
+            clock-frequency = <4096000>;
+        };
+    };
+
 };
 
 
@@ -625,6 +656,7 @@
 				MX6QDL_PAD_SD1_DAT1__GPIO1_IO17		0x80000000		/* PWM3 (as gpio) */
 				MX6QDL_PAD_SD1_DAT2__GPIO1_IO19		0x80000000		/* PWM2 (as gpio) */
 				MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25	0x80000000		/* Phy reset (low) */
+				MX6QDL_PAD_ENET_RXD0__GPIO1_IO27    0x80000000      /* Schematic error, set to input */
 				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x80000000		/* Phy IRQ */
 				MX6QDL_PAD_DISP0_DAT4__GPIO4_IO25	0x80000000		/* AC5W_SD */
 				MX6QDL_PAD_DISP0_DAT5__GPIO4_IO26	0x80000000		/* MCU_RST */
