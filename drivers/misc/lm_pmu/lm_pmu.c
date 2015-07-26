@@ -11,9 +11,12 @@
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
 #include <linux/rtc.h>
+#include <linux/hwmon.h>
+#include <linux/hwmon-sysfs.h>
 
 #include "muxprotocol.h"
 #include "rtc_proto.h"
+#include "ina219_proto.h"
 
 const struct spi_device_id lm_pmu_ids[] = {
 	{ "lm_pmu",  0 },
@@ -39,6 +42,12 @@ struct lm_pmu_private {
 	int gpio_boot0;
 	int gpio_reset;
 	struct rtc_device *rtc;
+	bool has_hwmon;
+	struct device *hwmod_dev;
+	Ina219Msg_t ina_values[2];
+	struct mutex ina_lock;
+	unsigned long last_ina_update;
+	bool ina_valid;
 };
 
 static void lm_pmu_show_msg(struct lm_pmu_private *priv, const char *hdr, u8 *buf, int sz)
@@ -188,6 +197,124 @@ static void lm_pmu_response(struct work_struct *work)
 }
 #endif
 
+/* Sensors */
+
+static int pmu_update_ina_values(struct lm_pmu_private *priv)
+{
+	int tx_len, status=0;
+	u8 *payload;
+	u8 tx_buffer[sizeof(Ina219MsgHeader_t)];
+	u8 rx_buffer[sizeof(Ina219MsgHeader_t) + sizeof(Ina219Msg_t)];
+
+
+	mutex_lock(&priv->ina_lock);
+
+	if (time_after(jiffies, priv->last_ina_update + HZ/1) || !priv->ina_valid ) {
+		tx_len = ina219_create_message(msg_ina219_show_value, tx_buffer, 0);
+		status = lm_pmu_exchange(priv, msg_ina, tx_buffer, tx_len, rx_buffer, sizeof(rx_buffer));
+		priv->last_ina_update = jiffies;
+		priv->ina_valid = true;
+
+		if (status < 0)
+			goto cleanup;
+
+		payload = ina219_get_payload(rx_buffer);
+		if (payload) {
+			memcpy(&priv->ina_values, payload, sizeof(priv->ina_values));
+		}
+		else
+			dev_err(&priv->spi_dev->dev, "%s: Failed updating ina values\n", __func__);
+
+	}
+
+cleanup:
+	mutex_unlock(&priv->ina_lock);
+	return status;
+}
+
+static ssize_t pmu_show_ina_value(struct device *dev,
+				 struct device_attribute *da, char *buf)
+{
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	struct lm_pmu_private *priv = dev_get_drvdata(dev);
+	int i;
+	int ret = pmu_update_ina_values(priv);
+	if ( ret < 0)
+		return 0;
+
+	i = attr->index < 4 ? 0 : 1;
+
+	switch (attr->index) {
+	case 0:
+	case 4:
+		return snprintf(buf, PAGE_SIZE, "%d\n", (int)priv->ina_values[i].ina219_shunt_vol);
+		break;
+	case 1:
+	case 5:
+		return snprintf(buf, PAGE_SIZE, "%d\n", (int)priv->ina_values[i].ina219_bus_vol);
+		break;
+	case 2:
+	case 6:
+		return snprintf(buf, PAGE_SIZE, "%d\n", (int)priv->ina_values[i].ina219_current);
+		break;
+	case 3:
+	case 7:
+		return snprintf(buf, PAGE_SIZE, "%d\n", (int)priv->ina_values[i].ina219_power);
+		break;
+
+	default:
+		return 0;
+		break;
+	}
+
+}
+
+/* shunt voltage */
+static SENSOR_DEVICE_ATTR(in0_input, S_IRUGO, pmu_show_ina_value, NULL, 0);
+
+/* bus voltage */
+static SENSOR_DEVICE_ATTR(in1_input, S_IRUGO, pmu_show_ina_value, NULL, 1);
+
+/* calculated current */
+static SENSOR_DEVICE_ATTR(curr1_input, S_IRUGO, pmu_show_ina_value, NULL, 2);
+
+/* calculated power */
+static SENSOR_DEVICE_ATTR(power1_input, S_IRUGO, pmu_show_ina_value, NULL, 3);
+
+static SENSOR_DEVICE_ATTR(in2_input, S_IRUGO, pmu_show_ina_value, NULL, 4);
+
+/* bus voltage */
+static SENSOR_DEVICE_ATTR(in3_input, S_IRUGO, pmu_show_ina_value, NULL, 5);
+
+/* calculated current */
+static SENSOR_DEVICE_ATTR(curr2_input, S_IRUGO, pmu_show_ina_value, NULL, 6);
+
+/* calculated power */
+static SENSOR_DEVICE_ATTR(power2_input, S_IRUGO, pmu_show_ina_value, NULL, 7);
+
+
+static struct attribute *ina_attrs[] = {
+	&sensor_dev_attr_in0_input.dev_attr.attr,
+	&sensor_dev_attr_in1_input.dev_attr.attr,
+	&sensor_dev_attr_curr1_input.dev_attr.attr,
+	&sensor_dev_attr_power1_input.dev_attr.attr,
+	&sensor_dev_attr_in2_input.dev_attr.attr,
+	&sensor_dev_attr_in3_input.dev_attr.attr,
+	&sensor_dev_attr_curr2_input.dev_attr.attr,
+	&sensor_dev_attr_power2_input.dev_attr.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(ina);
+
+static int lm_pmu_config_hwmon(struct lm_pmu_private *priv)
+{
+	mutex_init(&priv->ina_lock);
+	priv->hwmod_dev = devm_hwmon_device_register_with_groups(&priv->spi_dev->dev, "pmu", priv, ina_groups);
+	if (IS_ERR(priv->hwmod_dev))
+		return PTR_ERR(priv->hwmod_dev);
+	return 0;
+}
+
 static int lm_pmu_probe(struct spi_device *spi)
 {
 	struct lm_pmu_private *priv;
@@ -251,6 +378,13 @@ static int lm_pmu_probe(struct spi_device *spi)
 	if (IS_ERR(priv->rtc)) {
 		ret = PTR_ERR(priv->rtc);
 		goto cleanup;
+	}
+
+	priv->has_hwmon = of_property_read_bool(np, "hwmon");
+	if (priv->has_hwmon) {
+		ret = lm_pmu_config_hwmon(priv);
+		if (ret)
+			goto cleanup;
 	}
 	return 0;
 

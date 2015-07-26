@@ -11,16 +11,15 @@ typedef enum Ina219MsgType
 
 typedef struct Ina219Msg
 {
-	u16 ina219_shunt_vol;
-	u16 ina219_bus_vol;
-	u16 ina219_power;
-	u16 ina219_current;
+	u16 ina219_shunt_vol[2];
+	u16 ina219_bus_vol[2];
+	u16 ina219_power[2];
+	u16 ina219_current[2];
 } Ina219Msg_t;
 
 typedef struct Ina219MsgHeader
 {
 	u16 type;
-	u16 i2c_dev;
 	u16 payloadLen;
 } Ina219MsgHeader_t;
 
