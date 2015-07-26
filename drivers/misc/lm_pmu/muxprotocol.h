@@ -24,6 +24,7 @@ typedef enum MpuMsgType
 	msg_oneWire=0,
 	msg_rtc,
 	msg_version,
+	msg_ina,
 } MpuMsgType_t;
 
 /* Set this bit in the type field of the return message on error */

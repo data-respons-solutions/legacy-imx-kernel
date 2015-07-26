@@ -16,10 +16,7 @@ int ina219_create_message(Ina219MsgType_t type, u8 *buffer, Ina219Msg_t *msg)
 	if (msg) {
 		msghdr->payloadLen = cpu_to_le16(sizeof(*msg));
 
-		msg_p->ina219_shunt_vol = (msg->ina219_shunt_vol);
-		msg_p->ina219_bus_vol = (msg->ina219_bus_vol);
-		msg_p->ina219_power = (msg->ina219_power);
-		msg_p->ina219_current = (msg->ina219_current);
+		memcpy(msg_p, msg, sizeof(*msg));
 		
 		return sizeof(Ina219MsgHeader_t) + sizeof(*msg);
 	}
