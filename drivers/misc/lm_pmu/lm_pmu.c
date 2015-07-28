@@ -198,6 +198,8 @@ static void lm_pmu_response(struct work_struct *work)
 #endif
 
 /* Sensors */
+/* worst case is 68.10 ms (~14.6Hz, ina219) */
+#define INA2XX_CONVERSION_RATE		5	/* Use max 5 Hz */
 
 static int pmu_update_ina_values(struct lm_pmu_private *priv)
 {
@@ -209,7 +211,7 @@ static int pmu_update_ina_values(struct lm_pmu_private *priv)
 
 	mutex_lock(&priv->ina_lock);
 
-	if (time_after(jiffies, priv->last_ina_update + HZ/1) || !priv->ina_valid ) {
+	if (time_after(jiffies, priv->last_ina_update + HZ/INA2XX_CONVERSION_RATE) || !priv->ina_valid ) {
 		tx_len = ina219_create_message(msg_ina219_show_value, tx_buffer, 0);
 		status = lm_pmu_exchange(priv, msg_ina, tx_buffer, tx_len, rx_buffer, sizeof(rx_buffer));
 		priv->last_ina_update = jiffies;
