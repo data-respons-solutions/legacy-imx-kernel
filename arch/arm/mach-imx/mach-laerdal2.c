@@ -51,7 +51,7 @@ static int flexcan_en_gpio;
 static int flexcan_stby_gpio;
 static int flexcan0_en;
 static int flexcan1_en;
-
+static int shutdown_gpio = -1;
 #ifndef __KERNEL__
 #define __init
 #endif
@@ -181,33 +181,6 @@ static int ksz9031rn_phy_fixup(struct phy_device *dev)
 	return 0;
 }
 
-/*
- * fixup for PLX PEX8909 bridge to configure GPIO1-7 as output High
- * as they are used for slots1-7 PERST#
- */
-static void ventana_pciesw_early_fixup(struct pci_dev *dev)
-{
-	u32 dw;
-
-	if (!of_machine_is_compatible("gw,ventana"))
-		return;
-
-	if (dev->devfn != 0)
-		return;
-
-	pci_read_config_dword(dev, 0x62c, &dw);
-	dw |= 0xaaa8; // GPIO1-7 outputs
-	pci_write_config_dword(dev, 0x62c, dw);
-
-	pci_read_config_dword(dev, 0x644, &dw);
-	dw |= 0xfe;   // GPIO1-7 output high
-	pci_write_config_dword(dev, 0x644, dw);
-
-	msleep(100);
-}
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_PLX, 0x8609, ventana_pciesw_early_fixup);
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_PLX, 0x8606, ventana_pciesw_early_fixup);
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_PLX, 0x8604, ventana_pciesw_early_fixup);
 
 static int ar8031_phy_fixup(struct phy_device *dev)
 {
@@ -448,6 +421,14 @@ static const struct of_dev_auxdata imx6q_auxdata_lookup[] __initconst = {
 	{ /* sentinel */ }
 };
 
+static void pmu_shutdown(void)
+{
+	if (gpio_is_valid(shutdown_gpio)) {
+		gpio_set_value(shutdown_gpio, 0);
+		msleep(1000);
+	}
+}
+
 static void __init imx6q_add_gpio(void)
 {
 	struct device_node *user_gpios, *it;
@@ -480,6 +461,11 @@ static void __init imx6q_add_gpio(void)
 				continue;
 			}
 			pr_info("%s: Setting up gpio %s, active low %d\n", __func__, of_node_full_name(it), of_flags);
+			if (strcmp(it->name, "gpio-pmu-live") == 0) {
+				pr_info("%s: Found shutdown gpio as %d\n", __func__, gpio_nr);
+				shutdown_gpio = gpio_nr;
+				pm_power_off = pmu_shutdown;
+			}
 		}
 		of_node_put(user_gpios);
 	}
