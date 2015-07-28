@@ -14,7 +14,7 @@
 	aliases {
 		mmc0 = &usdhc3;
 		mmc1 = &usdhc4;
-		rtc0 = &mpu;
+		rtc0 = &pmu;
 	};
 
 	memory {
@@ -213,12 +213,6 @@
 			status = "okay";
 		};
 		
-		gpio-pmu-rst {
-			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <1>;
-		};
-		
 		gpio-can-en {
 			gpios = <&gpio3 21 GPIO_ACTIVE_HIGH>;
 			status = "okay";
@@ -336,12 +330,14 @@
 		hp-det-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
 		mic-det-gpios = <&gpio1 4 GPIO_ACTIVE_LOW>;
 	};
-	
+#if 0
 	sound_8ch {
 		compatible = "fsl,imx-audio-pcm1681";
 		model = "pcm1681";
 		cpu-dai = <&esai>;
 		audio-codec = <&codec_pcm1681>;
+		/* clocks = <&si5351 0>; */
+		hfclk-freq = <8192000>;
 		amp-shutdown-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 		audio-routing = 
 			"OUT1", "VOUT1",
@@ -352,7 +348,8 @@
 			"OUT6", "VOUT6",
 			"OUT7", "VOUT7",
 			"OUT8", "VOUT8";
-	};	
+	};
+#endif	
 };
 
 &esai {
@@ -393,11 +390,13 @@
 	pinctrl-0 = <&pinctrl_ecspi2>;
 	status = "okay";
 	
-	mpu: mpu@0 {
+	pmu: pmu@0 {
 	   #address-cells = <1>;
        #size-cells = <1>;
-	   compatible = "datarespons,lm_mpu";
+	   compatible = "datarespons,lm_pmu";
 	   irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+	   boot0-gpio = <&gpio5 15 GPIO_ACTIVE_HIGH>;
+	   reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
 	   spi-max-frequency = <4000000>;
 	   reg = <0>;
 	};
@@ -571,25 +570,21 @@
 
 };
 
+
 &i2c3 {
     clock-frequency = <100000>;
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_i2c3>;
-    status = "okay";
+    status = "disabled";
 
 	board_temp: tmp103@70 {
 		compatible = "ti,tmp103";
 		reg = <0x70>;
 	};
 	
-	codec_pcm1681: pcm1681@4c {
-		compatible = "ti,pcm1681";
-		reg = <0x4c>;
-	};
-	
-   si5351: clock-generator {
+   si5351: clock-generator@30 {
         compatible = "silabs,si5351a-msop";
-        reg = <0x60>;
+        reg = <0x30>;
         #address-cells = <1>;
         #size-cells = <0>;
         #clock-cells = <1>;
@@ -606,10 +601,25 @@
             silabs,multisynth-source = <0>;
             silabs,clock-source = <0>;
             silabs,pll-master;
-            clock-frequency = <4096000>;
+            clock-frequency = <8192000>;
         };
     };
 
+    codec_pcm1681: pcm1681@4c {
+        compatible = "ti,pcm1681";
+        clocks = <&si5351 0>;
+        reg = <0x4c>;
+    };
+
+    onewire_1: ds2482@18 {
+        reg = <0x18>;
+        compatible = "ds2482";
+    };
+    
+    onewire_2: ds2482@19 {
+        reg = <0x19>;
+        compatible = "ds2482";
+    };
 };
 
 
@@ -628,7 +638,6 @@
 				MX6QDL_PAD_KEY_ROW4__GPIO4_IO15		0x80000000		/* PMIC_5V_EN */
 				MX6QDL_PAD_GPIO_0__CCM_CLKO1		0x130b0  		/* External audio clk */
 				MX6QDL_PAD_GPIO_1__WDOG2_B			0x80000000
-				MX6QDL_PAD_GPIO_4__ESAI_TX_HF_CLK	0x80000000		/* Audio input clock */
 				MX6QDL_PAD_GPIO_5__GPIO1_IO05		0x80000000		/* SPK_SD_N */
 				MX6QDL_PAD_GPIO_9__GPIO1_IO09		0x0001b000		/* HP_DET, pullup */
 				MX6QDL_PAD_GPIO_18__GPIO7_IO13      0x1b0b1         /* Mic detect, pullup */
@@ -668,9 +677,9 @@
 				MX6QDL_PAD_DISP0_DAT12__GPIO5_IO06	0x80000000		/* WIFI_LED_G */
 				MX6QDL_PAD_DISP0_DAT13__GPIO5_IO07	0x80000000		/* WIFI_LED_B */
 				MX6QDL_PAD_DISP0_DAT14__GPIO5_IO08	0x80000000		/* WIFI_LED_R */
-				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13  0x00020040      /* PMU_RST_N (OD) */
+				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13  0x00000800      /* PMU_RST_N (OD) */
                 MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x80000000      /* GP_03 (status to PMU) */
-                MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x00020040      /* PMU BOOT0 (OD)*/
+                MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x80000000      /* PMU BOOT0 */
                 MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16  0x80000000      /* GP_PMU_01 */
                 MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17  0x1b0b1         /* GP_PMU_02 (nIRQ)*/
 			>;
@@ -694,7 +703,7 @@
 				MX6QDL_PAD_EIM_OE__ECSPI2_MISO	0x100b1
 				MX6QDL_PAD_EIM_CS1__ECSPI2_MOSI	0x100b1
 				MX6QDL_PAD_EIM_CS0__ECSPI2_SCLK	0x100b1
-				MX6QDL_PAD_DISP0_DAT18__GPIO5_IO12	0x100b1
+				MX6QDL_PAD_DISP0_DAT18__GPIO5_IO12	0x70c1
 			>;
 		};
 	};
@@ -819,6 +828,7 @@
 				MX6QDL_PAD_GPIO_6__ESAI_TX_CLK 		0x1b030
 				MX6QDL_PAD_GPIO_2__ESAI_TX_FS    	0x1b030
 				MX6QDL_PAD_GPIO_17__ESAI_TX0        0x1b030
+				MX6QDL_PAD_GPIO_4__ESAI_TX_HF_CLK   0x80000000
 			>;
 		};
 	};
