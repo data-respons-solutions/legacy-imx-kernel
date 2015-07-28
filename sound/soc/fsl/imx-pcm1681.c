@@ -39,9 +39,9 @@ struct imx_pcm1681_data {
 	struct snd_soc_card card;
 	char codec_dai_name[DAI_NAME_SIZE];
 	char platform_name[DAI_NAME_SIZE];
-	unsigned int clk_frequency;
 	struct pcm_gpio_info shutdown_gpios[8];
 	int num_shutdown_gpios;
+	u32 pll_freq;
 };
 
 static const struct snd_soc_dapm_widget imx_pcm1681_dapm_widgets[] = {
@@ -73,6 +73,7 @@ static int imx_pcm1681_hw_param(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct imx_pcm1681_data *data = snd_soc_card_get_drvdata(rtd->card);
 	unsigned int sample_rate = params_rate(params);
 	unsigned ch = params_channels(params);
 	snd_pcm_format_t sample_format = params_format(params);
@@ -139,7 +140,7 @@ static int imx_pcm1681_hw_param(struct snd_pcm_substream *substream,
 		dev_err(rtd->dev, "%s: failed to set codec tdm fmt: %d\n", __func__, ret);
 		return ret;
 	}
-	//snd_soc_dai_set_sysclk(cpu_dai, tx ? ESAI_HCKT_EXTAL : ESAI_HCKR_EXTAL, clock_freq, SND_SOC_CLOCK_OUT);
+	snd_soc_dai_set_sysclk(cpu_dai, 0, data->pll_freq, SND_SOC_CLOCK_IN);
 
 	return 0;
 }
@@ -233,6 +234,9 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto fail;
 	}
+	data->pll_freq = 8192000;
+	of_property_read_u32(pdev->dev.of_node, "hfclk-freq", &data->pll_freq);
+	dev_info(&pdev->dev, "%s: PLL (HFTXC) = %d\n", __func__, data->pll_freq);
 
 	sd_gpios = of_gpio_named_count(pdev->dev.of_node, "amp-shutdown-gpios");
 	for (n=0; n < sd_gpios; n++) {
