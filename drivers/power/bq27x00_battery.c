@@ -816,12 +816,18 @@ static int bq27x00_battery_probe(struct i2c_client *client,
 	di->chip = id->driver_data;
 	di->bat.name = name;
 	di->bus.read = &bq27x00_read_i2c;
+	i2c_set_clientdata(client, di);
+
+	retval = bq27x00_read_i2c(di, BQ27x00_REG_TEMP, true);
+	if ( retval < 0) {
+		dev_err(&client->dev, "No answer on i2c bus, assuming no battery\n");
+		goto batt_failed_3;
+	}
 
 	retval = bq27x00_powersupply_init(di);
 	if (retval)
 		goto batt_failed_3;
 
-	i2c_set_clientdata(client, di);
 
 	return 0;
 
