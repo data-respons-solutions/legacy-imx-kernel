@@ -14,6 +14,7 @@
 		mxcfb0 = &mxcfb1;
 		mmc0 = &usdhc3;
 		mmc1 = &usdhc4;
+		rtc0 = &pmu;
 	};
 
 	memory {
@@ -231,22 +232,11 @@
 			value = <1>;
 		};
 		
-		gpio-pmu1 {
-			gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>;
-			status = "okay";
-			bidir;
-		};
-		
-		gpio-pmu2 {
-			gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
-			status = "okay";
-			value = <0>;
-		};
-		
-		gpio-pmu-rst {
-			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <1>;
+		/* Special gpio signal controlling PMU power state machine */
+		gpio-pmu-live {
+            gpios = <&gpio5 14 GPIO_ACTIVE_HIGH>;
+            status = "okay";
+            value = <1>;
 		};
 		
 	};
@@ -326,11 +316,13 @@
 	pinctrl-0 = <&pinctrl_ecspi2>;
 	status = "okay";
 	
-    mpu: mpu@0 {
+    pmu: pmu@0 {
        #address-cells = <1>;
        #size-cells = <1>;
-       compatible = "datarespons,lm_mpu";
+       compatible = "datarespons,lm_pmu";
        irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+       boot0-gpio = <&gpio5 15 GPIO_ACTIVE_HIGH>;
+       reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
        spi-max-frequency = <4000000>;
        reg = <0>;
     };
@@ -364,7 +356,7 @@
 
 &gpc {
 	fsl,ldo-bypass = <0>; /* use ldo-bypass, u-boot will check it and configure */
-	fsl,wdog-reset = <2>; /* watchdog select of reset source */
+	fsl,wdog-reset = <1>; /* watchdog select of reset source */
 };
 
 &wdog1 {
@@ -580,9 +572,9 @@
 				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x80000000		/* Phy IRQ */
 				MX6QDL_PAD_ENET_TXD0__GPIO1_IO30	0x80000000		/* DISP0_PWR_EN */
 				MX6QDL_PAD_KEY_COL1__GPIO4_IO08		0x80000000		/* Backlight Enable */
-				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x00020040		/* PMU_RST_N (OD) */
+				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x00000800		/* PMU_RST_N (OD) */
 				MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x80000000      /* GP_03 (status to PMU) */
-				MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x00020040      /* PMU BOOT0 (OD)*/
+				MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x80000000      /* PMU BOOT0 */
 				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x80000000		/* GP_PMU_01 */
 				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17	0x1b0b1		    /* GP_PMU_02 (nIRQ)*/
 			>;
@@ -606,7 +598,7 @@
 				MX6QDL_PAD_EIM_OE__ECSPI2_MISO	0x100b1
 				MX6QDL_PAD_EIM_CS1__ECSPI2_MOSI	0x100b1
 				MX6QDL_PAD_EIM_CS0__ECSPI2_SCLK	0x100b1
-				MX6QDL_PAD_DISP0_DAT18__GPIO5_IO12	0x100b1
+				MX6QDL_PAD_DISP0_DAT18__GPIO5_IO12	0x70c1
 			>;
 		};
 	};
