@@ -42,6 +42,7 @@ struct imx_pcm1681_data {
 	struct pcm_gpio_info shutdown_gpios[8];
 	int num_shutdown_gpios;
 	u32 pll_freq;
+	struct clk *input_clk;
 };
 
 static const struct snd_soc_dapm_widget imx_pcm1681_dapm_widgets[] = {
@@ -81,8 +82,8 @@ static int imx_pcm1681_hw_param(struct snd_pcm_substream *substream,
 	int slotw=32;
 	u32 width = snd_pcm_format_width(params_format(params));
 	unsigned int clock_freq=0;
-	u32 codec_dai_format = SND_SOC_DAIFMT_LEFT_J | SND_SOC_DAIFMT_NB_IF | SND_SOC_DAIFMT_CBS_CFS;
-
+	u32 codec_dai_format = SND_SOC_DAIFMT_LEFT_J | SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS;
+	snd_soc_dai_set_sysclk(cpu_dai, 0, data->pll_freq, SND_SOC_CLOCK_IN);
 	ret = snd_soc_dai_set_fmt(codec_dai, codec_dai_format);
 	if (ret) {
 		dev_err(rtd->dev, "failed to set codec dai fmt: %d\n", ret);
@@ -128,6 +129,7 @@ static int imx_pcm1681_hw_param(struct snd_pcm_substream *substream,
 		return -EINVAL;
 		break;
 	}
+
 	dev_dbg(rtd->dev, "%s: ESAI clock is %d\n", __func__, clock_freq);
 	ret = snd_soc_dai_set_tdm_slot(cpu_dai, (1 << ch)-1, 0x0, ch, slotw);
 	if (ret) {
@@ -140,7 +142,7 @@ static int imx_pcm1681_hw_param(struct snd_pcm_substream *substream,
 		dev_err(rtd->dev, "%s: failed to set codec tdm fmt: %d\n", __func__, ret);
 		return ret;
 	}
-	snd_soc_dai_set_sysclk(cpu_dai, 0, data->pll_freq, SND_SOC_CLOCK_IN);
+
 
 	return 0;
 }
@@ -235,6 +237,12 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 		goto fail;
 	}
 	data->pll_freq = 8192000;
+	data->input_clk = devm_clk_get(&codec_dev->dev, NULL);
+	if (IS_ERR(data->input_clk)) {
+		data->input_clk = 0;
+		dev_warn(&pdev->dev, "failed to get input clock from codec DT\n");
+	}
+
 	of_property_read_u32(pdev->dev.of_node, "hfclk-freq", &data->pll_freq);
 	dev_info(&pdev->dev, "%s: PLL (HFTXC) = %d\n", __func__, data->pll_freq);
 

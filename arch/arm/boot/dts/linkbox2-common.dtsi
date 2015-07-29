@@ -330,13 +330,12 @@
 		hp-det-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
 		mic-det-gpios = <&gpio1 4 GPIO_ACTIVE_LOW>;
 	};
-#if 0
+
 	sound_8ch {
 		compatible = "fsl,imx-audio-pcm1681";
 		model = "pcm1681";
 		cpu-dai = <&esai>;
 		audio-codec = <&codec_pcm1681>;
-		/* clocks = <&si5351 0>; */
 		hfclk-freq = <8192000>;
 		amp-shutdown-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 		audio-routing = 
@@ -349,11 +348,10 @@
 			"OUT7", "VOUT7",
 			"OUT8", "VOUT8";
 	};
-#endif	
 };
 
 &esai {
-	compatible = "dr,esai-linkbox";
+	compatible = "fsl,imx35-esai";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_esai_linkbox>;
 	status = "okay";
@@ -575,16 +573,26 @@
     clock-frequency = <100000>;
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_i2c3>;
-    status = "disabled";
+    status = "okay";
 
 	board_temp: tmp103@70 {
 		compatible = "ti,tmp103";
 		reg = <0x70>;
 	};
 	
-   si5351: clock-generator@30 {
+    onewire_1: ds2482@18 {
+        reg = <0x18>;
+        compatible = "dallas,ds2482";
+    };
+    
+    onewire_2: ds2482@19 {
+        reg = <0x19>;
+        compatible = "dallas,ds2482";
+    };
+    
+   si5351: clock-generator@60 {
         compatible = "silabs,si5351a-msop";
-        reg = <0x30>;
+        reg = <0x60>;
         #address-cells = <1>;
         #size-cells = <0>;
         #clock-cells = <1>;
@@ -611,15 +619,7 @@
         reg = <0x4c>;
     };
 
-    onewire_1: ds2482@18 {
-        reg = <0x18>;
-        compatible = "ds2482";
-    };
-    
-    onewire_2: ds2482@19 {
-        reg = <0x19>;
-        compatible = "ds2482";
-    };
+
 };
 
 
