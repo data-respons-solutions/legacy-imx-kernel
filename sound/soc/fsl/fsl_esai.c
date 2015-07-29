@@ -23,7 +23,8 @@
 #define FSL_ESAI_FORMATS	(SNDRV_PCM_FMTBIT_S8 | \
 				SNDRV_PCM_FMTBIT_S16_LE | \
 				SNDRV_PCM_FMTBIT_S20_3LE | \
-				SNDRV_PCM_FMTBIT_S24_LE)
+				SNDRV_PCM_FMTBIT_S24_LE | \
+				SNDRV_PCM_FMTBIT_S32_LE)
 
 /**
  * fsl_esai: ESAI private data
@@ -310,7 +311,7 @@ static int fsl_esai_set_bclk(struct snd_soc_dai *dai, bool tx, u32 freq)
 	u32 hck_rate = esai_priv->hck_rate[tx];
 	u32 sub, ratio = hck_rate / freq;
 	int ret;
-
+	dev_dbg(dai->dev, "%s: bitrate is %d and hclk is %d\n", __func__, (int)freq, (int)esai_priv->hck_rate[tx]);
 	/* Don't apply for fully slave mode or unchanged bclk */
 	if (esai_priv->slave_mode || esai_priv->sck_rate[tx] == freq)
 		return 0;
@@ -324,8 +325,8 @@ static int fsl_esai_set_bclk(struct snd_soc_dai *dai, bool tx, u32 freq)
 
 	/* Block if clock source can not be divided into the required rate */
 	if (sub != 0 && hck_rate / sub < 1000) {
-		dev_err(dai->dev, "failed to derive required SCK%c rate\n",
-				tx ? 'T' : 'R');
+		dev_err(dai->dev, "failed to derive required SCK%c rate with f=%d and hck=%d\n",
+				tx ? 'T' : 'R', (int)freq, (int)esai_priv->hck_rate);
 		return -EINVAL;
 	}
 
