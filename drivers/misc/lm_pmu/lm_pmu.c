@@ -321,6 +321,7 @@ static int lm_pmu_probe(struct spi_device *spi)
 {
 	struct lm_pmu_private *priv;
 	int ret=0;
+	int trials=3;
 	struct device_node *np = spi->dev.of_node;
 	MpuVersionHeader_t version;
 
@@ -372,7 +373,12 @@ static int lm_pmu_probe(struct spi_device *spi)
 	init_waitqueue_head(&priv->wait);
 	spi_set_drvdata(spi, priv);
 
-	ret = lm_pmu_get_version(priv, &version);
+	while (trials) {
+		ret = lm_pmu_get_version(priv, &version);
+		if (ret == 0)
+			break;
+		trials--;
+	}
 	if (ret < 0)
 		goto cleanup;
 
