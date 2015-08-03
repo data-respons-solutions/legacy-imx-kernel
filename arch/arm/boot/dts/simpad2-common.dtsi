@@ -234,9 +234,9 @@
 		
 		/* Special gpio signal controlling PMU power state machine */
 		gpio-pmu-live {
-            gpios = <&gpio5 14 GPIO_ACTIVE_HIGH>;
+            gpios = <&gpio5 17 GPIO_ACTIVE_LOW>;
             status = "okay";
-            value = <1>;
+            value = <0>;
 		};
 		
 	};
@@ -321,6 +321,7 @@
        #size-cells = <1>;
        compatible = "datarespons,lm_pmu";
        irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+       msg-complete-gpio = <&gpio5 14 GPIO_ACTIVE_LOW>;
        boot0-gpio = <&gpio5 15 GPIO_ACTIVE_HIGH>;
        reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
        spi-max-frequency = <4000000>;
@@ -575,8 +576,8 @@
 				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x00000800		/* PMU_RST_N (OD) */
 				MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x80000000      /* GP_03 (status to PMU) */
 				MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x80000000      /* PMU BOOT0 */
-				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x80000000		/* GP_PMU_01 */
-				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17	0x1b0b1		    /* GP_PMU_02 (nIRQ)*/
+				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x130b1		    /* GP_PMU_01 (IRQ) */
+				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17	0x80000000	    /* GP_PMU_02 (status) */
 			>;
 		};
 	};

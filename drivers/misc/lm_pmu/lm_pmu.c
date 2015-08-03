@@ -41,6 +41,7 @@ struct lm_pmu_private {
 	bool use_poll;
 	int gpio_boot0;
 	int gpio_reset;
+	int gpio_msg_complete;
 	struct rtc_device *rtc;
 	bool has_hwmon;
 	struct device *hwmod_dev;
@@ -77,6 +78,11 @@ static int lm_pmu_exchange(struct lm_pmu_private *priv,
 	mutex_lock(&priv->serial_lock);
 	sz = mpu_create_message(proto, priv->outgoing_buffer, tx_buffer, tx_len );
 	status = spi_write(priv->spi_dev, (const void*)priv->outgoing_buffer, sz);
+	if (priv->gpio_msg_complete >= 0) {
+		gpio_set_value(priv->gpio_msg_complete, 0);
+		udelay(2);
+		gpio_set_value(priv->gpio_msg_complete, 1);
+	}
 	lm_pmu_show_msg(priv, "Send:", priv->outgoing_buffer, sz);
 	if (status < 0) {
 		dev_err(&priv->spi_dev->dev, "%s: Could not write to pmu\n", __func__);
@@ -367,6 +373,18 @@ static int lm_pmu_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "%s: no GPIO for RESET pin to PMU\n", __func__);
 	}
 
+	priv->gpio_msg_complete = of_get_named_gpio(np, "msg-complete-gpio", 0);
+	if (gpio_is_valid(priv->gpio_msg_complete)) {
+		if (gpio_request_one(priv->gpio_msg_complete, GPIOF_DIR_OUT | GPIOF_INIT_HIGH, "msg-complete-gpio")) {
+				dev_err(&spi->dev, "%s: unable to request GPIO msg-complete-gpio [%d]\n", __func__, priv->gpio_msg_complete);
+				priv->gpio_msg_complete = -1;
+			}
+		}
+	else {
+		dev_err(&spi->dev, "%s: no GPIO for RESET pin to PMU\n", __func__);
+	}
+
+
 	mutex_init(&priv->serial_lock);
 	mutex_init(&priv->block_lock);
 	/* INIT_WORK(&priv->response_work, lm_pmu_response); */
@@ -381,13 +399,13 @@ static int lm_pmu_probe(struct spi_device *spi)
 	}
 	if (ret < 0)
 		goto cleanup;
-
+#if 1
 	priv->rtc = devm_rtc_device_register(&spi->dev, "lm_pmu", &lm_pmu_rtc_ops, THIS_MODULE);
 	if (IS_ERR(priv->rtc)) {
 		ret = PTR_ERR(priv->rtc);
 		goto cleanup;
 	}
-
+#endif
 	priv->has_hwmon = of_property_read_bool(np, "hwmon");
 	if (priv->has_hwmon) {
 		ret = lm_pmu_config_hwmon(priv);

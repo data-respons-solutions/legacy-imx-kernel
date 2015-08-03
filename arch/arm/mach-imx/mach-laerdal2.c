@@ -424,7 +424,8 @@ static const struct of_dev_auxdata imx6q_auxdata_lookup[] __initconst = {
 static void pmu_shutdown(void)
 {
 	if (gpio_is_valid(shutdown_gpio)) {
-		gpio_set_value(shutdown_gpio, 0);
+		pr_info("%s: Shut down using GPIO pin %d\n", __func__, shutdown_gpio);
+		gpio_set_value(shutdown_gpio, 1);
 		msleep(1000);
 	}
 }
