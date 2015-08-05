@@ -51,7 +51,7 @@ static int flexcan_en_gpio;
 static int flexcan_stby_gpio;
 static int flexcan0_en;
 static int flexcan1_en;
-static int shutdown_gpio = -1;
+
 #ifndef __KERNEL__
 #define __init
 #endif
@@ -180,7 +180,6 @@ static int ksz9031rn_phy_fixup(struct phy_device *dev)
 
 	return 0;
 }
-
 
 static int ar8031_phy_fixup(struct phy_device *dev)
 {
@@ -421,15 +420,6 @@ static const struct of_dev_auxdata imx6q_auxdata_lookup[] __initconst = {
 	{ /* sentinel */ }
 };
 
-static void pmu_shutdown(void)
-{
-	if (gpio_is_valid(shutdown_gpio)) {
-		pr_info("%s: Shut down using GPIO pin %d\n", __func__, shutdown_gpio);
-		gpio_set_value(shutdown_gpio, 1);
-		msleep(1000);
-	}
-}
-
 static void __init imx6q_add_gpio(void)
 {
 	struct device_node *user_gpios, *it;
@@ -462,11 +452,6 @@ static void __init imx6q_add_gpio(void)
 				continue;
 			}
 			pr_info("%s: Setting up gpio %s, active low %d\n", __func__, of_node_full_name(it), of_flags);
-			if (strcmp(it->name, "gpio-pmu-live") == 0) {
-				pr_info("%s: Found shutdown gpio as %d\n", __func__, gpio_nr);
-				shutdown_gpio = gpio_nr;
-				pm_power_off = pmu_shutdown;
-			}
 		}
 		of_node_put(user_gpios);
 	}
