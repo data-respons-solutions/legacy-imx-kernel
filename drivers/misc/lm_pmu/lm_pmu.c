@@ -13,10 +13,12 @@
 #include <linux/rtc.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
+#include <linux/miscdevice.h>
 
 #include "muxprotocol.h"
 #include "rtc_proto.h"
 #include "ina219_proto.h"
+#include "stm32fwu.h"
 
 const struct spi_device_id lm_pmu_ids[] = {
 	{ "lm_pmu",  0 },
@@ -26,7 +28,8 @@ const struct spi_device_id lm_pmu_ids[] = {
 #define PROTO_BUF_SIZE 1024
 struct lm_pmu_private;
 
-
+/* Singleton for power function */
+static struct lm_pmu_private *the_one_and_only;
 
 struct lm_pmu_private {
 	u8 outgoing_buffer[PROTO_BUF_SIZE];
@@ -44,11 +47,91 @@ struct lm_pmu_private {
 	int gpio_msg_complete;
 	struct rtc_device *rtc;
 	bool has_hwmon;
+	bool do_poweroff;
 	struct device *hwmod_dev;
 	Ina219Msg_t ina_values[2];
 	struct mutex ina_lock;
 	unsigned long last_ina_update;
 	bool ina_valid;
+	struct miscdevice fw_dev;
+	struct stm32fwu_fw *fw;
+};
+
+static void lm_pmu_reset(struct lm_pmu_private *priv)
+{
+	gpio_set_value(priv->gpio_reset, 0);
+	usleep_range(200, 300);
+	gpio_set_value(priv->gpio_reset, 1);
+	msleep_interruptible(50);
+}
+
+static int lm_pmu_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static ssize_t lm_pmu_update(struct file *file, const char __user *data,
+						size_t len, loff_t *ppos)
+{
+	int retries=2;
+	int res=0;
+	int fw_version;
+	struct miscdevice *msdev = file->private_data;
+	struct lm_pmu_private *priv = dev_get_drvdata(msdev->parent);
+	char *buffer = kmalloc(len, GFP_KERNEL);
+	if (buffer == 0) {
+		dev_err(msdev->parent, "%s: failed to kmalloc buffer of size %d\n", __func__, len);
+		return -ENOMEM;
+	}
+	res = copy_from_user(buffer, data, len);
+	if ( res  ) {
+		dev_err(msdev->parent, "%s: failed to copy buffer of size %d\n", __func__, len);
+		kfree(buffer);
+		return -EIO;
+	}
+	priv->fw = stm32fwu_init(msdev->parent, STM32_SPI, buffer, len);
+	if (priv->fw == 0) {
+		dev_err(msdev->parent, "%s: failed to allocate fw structure\n", __func__);
+		kfree(buffer);
+		return -ENOMEM;
+	}
+	mutex_lock(&priv->serial_lock);
+	gpio_direction_output(priv->gpio_boot0, 1);
+	lm_pmu_reset(priv);
+
+	while (retries) {
+		if ( stm32fwu_send_sync(priv->fw) >= 0 )
+			break;
+		retries--;
+		if (retries == 0) {
+			dev_err(msdev->parent, "%s: failed get %d\n", __func__, res);
+			goto restore;
+		}
+		msleep(1);
+	}
+	fw_version = stm32fwu_get_version(priv->fw);
+	if (fw_version < 0) {
+		dev_err(msdev->parent, "%s: failed to get fw version\n", __func__);
+
+	}
+	else {
+		dev_info(msdev->parent, "%s: fw version %d\n", __func__, fw_version);
+	}
+restore:
+	gpio_set_value(priv->gpio_boot0, 0);
+	gpio_direction_input(priv->gpio_boot0);
+	lm_pmu_reset(priv);
+	mutex_unlock(&priv->serial_lock);
+	stm32fwu_destroy(priv->fw);
+	kfree(buffer);
+	return len;
+}
+
+static const struct file_operations lm_pmu_fops = {
+	.owner = THIS_MODULE,
+	.llseek = no_llseek,
+	.write = lm_pmu_update,
+	.open = lm_pmu_open,
 };
 
 static void lm_pmu_show_msg(struct lm_pmu_private *priv, const char *hdr, u8 *buf, int sz)
@@ -74,7 +157,7 @@ static int lm_pmu_exchange(struct lm_pmu_private *priv,
 	int status=0;
 	int sz;
 	MpuMsgHeader_t *msg_hdr;
-	dev_info(&priv->spi_dev->dev, "p=%d, txl=%d, rxl=%d\n", proto, tx_len, rx_len);
+	dev_dbg(&priv->spi_dev->dev, "p=%d, txl=%d, rxl=%d\n", proto, tx_len, rx_len);
 	mutex_lock(&priv->serial_lock);
 	sz = mpu_create_message(proto, priv->outgoing_buffer, tx_buffer, tx_len );
 	status = spi_write(priv->spi_dev, (const void*)priv->outgoing_buffer, sz);
@@ -194,6 +277,15 @@ static int lm_pmu_get_version(struct lm_pmu_private *priv, MpuVersionHeader_t *v
 		dev_info(&priv->spi_dev->dev, "%s: Version %d.%d found\n", __func__, ver->ver_major, ver->ver_minor);
 	}
 	return status;
+}
+
+static void lm_pmu_poweroff(void)
+{
+	int status = lm_pmu_exchange(the_one_and_only, msg_poweroff, 0, 0, 0, 0);
+	if (status < 0)
+		dev_err(&the_one_and_only->spi_dev->dev, "%s: failed\n", __func__);
+	else
+		dev_info(&the_one_and_only->spi_dev->dev, "%s: OK\n", __func__);
 }
 
 #if 0
@@ -344,7 +436,7 @@ static int lm_pmu_probe(struct spi_device *spi)
 			lm_pmu_irq_handler, IRQF_TRIGGER_RISING,
 			"lm_pmu", priv);
 		if (ret < 0)
-			dev_err(&spi->dev, "%s: not able to get irq for gpio %d, err %d\n", __func__, priv->gpio_irq, ret);
+			dev_warn(&spi->dev, "%s: not able to get irq for gpio %d, err %d\n", __func__, priv->gpio_irq, ret);
 	}
 	if (priv->gpio_irq < 0 || ret < 0)
 		dev_info(&spi->dev, "%s: no GPIO for interrupt, revert to polling\n", __func__);
@@ -354,12 +446,12 @@ static int lm_pmu_probe(struct spi_device *spi)
 	priv->gpio_boot0 = of_get_named_gpio(np, "boot0-gpio", 0);
 	if (gpio_is_valid(priv->gpio_boot0)) {
 		if (gpio_request_one(priv->gpio_boot0, GPIOF_DIR_IN, "pmu-boot0")) {
-			dev_err(&spi->dev, "%s: unable to request GPIO pmu-boot0 [%d]\n", __func__, priv->gpio_boot0);
+			dev_warn(&spi->dev, "%s: unable to request GPIO pmu-boot0 [%d]\n", __func__, priv->gpio_boot0);
 			priv->gpio_boot0 = -1;
 		}
 	}
 	else {
-		dev_err(&spi->dev, "%s: no GPIO for BOOT0 pin to PMU\n", __func__);
+		dev_warn(&spi->dev, "%s: no GPIO for BOOT0 pin to PMU\n", __func__);
 	}
 
 	priv->gpio_reset = of_get_named_gpio(np, "reset-gpio", 0);
@@ -391,27 +483,44 @@ static int lm_pmu_probe(struct spi_device *spi)
 	init_waitqueue_head(&priv->wait);
 	spi_set_drvdata(spi, priv);
 
+	priv->fw_dev.minor = 250;
+	priv->fw_dev.name = "lm_pmu_fwupdate";
+	priv->fw_dev.fops = &lm_pmu_fops;
+	priv->fw_dev.parent = &spi->dev;
+
+	ret = misc_register(&priv->fw_dev);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to register fw device\n");
+		goto cleanup;
+	}
+
 	while (trials) {
 		ret = lm_pmu_get_version(priv, &version);
 		if (ret == 0)
 			break;
 		trials--;
 	}
-	if (ret < 0)
-		goto cleanup;
-#if 1
-	priv->rtc = devm_rtc_device_register(&spi->dev, "lm_pmu", &lm_pmu_rtc_ops, THIS_MODULE);
-	if (IS_ERR(priv->rtc)) {
-		ret = PTR_ERR(priv->rtc);
-		goto cleanup;
-	}
-#endif
-	priv->has_hwmon = of_property_read_bool(np, "hwmon");
-	if (priv->has_hwmon) {
-		ret = lm_pmu_config_hwmon(priv);
-		if (ret)
+	if (ret == 0) {
+		priv->rtc = devm_rtc_device_register(&spi->dev, "lm_pmu", &lm_pmu_rtc_ops, THIS_MODULE);
+		if (IS_ERR(priv->rtc)) {
+			ret = PTR_ERR(priv->rtc);
 			goto cleanup;
+		}
+
+		priv->has_hwmon = of_property_read_bool(np, "hwmon");
+		if (priv->has_hwmon) {
+			ret = lm_pmu_config_hwmon(priv);
+			if (ret)
+				dev_err(&spi->dev, "Unable to create hwmon instance\n");
+		}
+
+		priv->do_poweroff = of_property_read_bool(np, "poweroff");
+		if (priv->do_poweroff) {
+			dev_info(&spi->dev,"PMU will perform poweroff\n");
+			pm_power_off = lm_pmu_poweroff;
+		}
 	}
+	the_one_and_only = priv;
 	return 0;
 
 cleanup:
@@ -424,6 +533,8 @@ cleanup:
 
 static int lm_pmu_remove(struct spi_device *spi)
 {
+	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
+	misc_deregister(&priv->fw_dev);
 	return 0;
 }
 
