@@ -1,6 +1,7 @@
 config LM_PMU
 	tristate "Laerdal PMU driver"
 	depends on SPI
+	depends on OF
 	default n
 	help
 	  Say Y here to include support for Laerdal PMU uC

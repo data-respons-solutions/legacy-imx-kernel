@@ -1,22 +1,11 @@
 #ifndef MUXPROTOCOL_H
 #define MUXPROTOCOL_H
 
-#ifndef __KERNEL__
-#include <stddef.h>
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-#include <string.h>
-#else
+#ifdef __KERNEL__
 #include <linux/byteorder/little_endian.h>
 #include <linux/string.h>
-#endif
-
-#ifdef STM32L051C6
-#define cpu_to_le16(x) (x)
-#define cpu_to_le32(x) (x)
-#define le32_to_cpu(x) (x)
-#define le16_to_cpu(x) (x)
+#else
+#include "common_defs.h"
 #endif
 
 typedef enum MpuMsgType
@@ -25,7 +14,8 @@ typedef enum MpuMsgType
 	msg_rtc,
 	msg_version,
 	msg_ina,
-	msg_poweroff,
+	msg_poweroff,	/* Switch off power */
+	msg_valid,		/* Get the status of valid lines */
 } MpuMsgType_t;
 
 /* Set this bit in the type field of the return message on error */
@@ -50,4 +40,6 @@ typedef struct MpuVersionHeader
 
 MpuVersionHeader_t* mpu_get_version_header(const u8 *buffer);
 
+
+u32 valid_get_data(u8 *buffer);
 #endif // MUXPROTOCOL_H
