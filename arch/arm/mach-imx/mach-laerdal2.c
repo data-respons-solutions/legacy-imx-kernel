@@ -451,7 +451,8 @@ static void __init imx6q_add_gpio(void)
 				pr_err("%s: Could not request gpio %d\n", __func__, gpio_nr);
 				continue;
 			}
-			pr_info("%s: Setting up gpio %s, active low %d\n", __func__, of_node_full_name(it), of_flags);
+			pr_info("%s: Setting up gpio %s [%d], init=%d\n", __func__,
+					of_node_full_name(it), gpio_nr, val);
 		}
 		of_node_put(user_gpios);
 	}
