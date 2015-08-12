@@ -43,3 +43,20 @@ u32 valid_get_data(u8 *buffer)
 	u32 *ptr = (u32*)buffer;
 	return le32_to_cpu(ptr[0]);
 }
+
+ChargeMessage_t charge_get_message(u8 *buffer)
+{
+	ChargeMessage_t msg;
+	const u16 *p  = (u16*)buffer;
+	msg.type = le16_to_cpu(p[0]);
+	msg.chargeMask = le16_to_cpu(p[1]);
+	return msg;
+}
+
+int charge_create_message(ChargeMessageType_t type, u8 *buffer, u16 mask)
+{
+	u16 *p = (u16*)buffer;
+	p[0] = cpu_to_le16((u16)type);
+	p[1] = cpu_to_le16(mask);
+	return 2*sizeof(u16);
+}
