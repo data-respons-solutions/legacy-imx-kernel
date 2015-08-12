@@ -324,6 +324,7 @@
        msg-complete-gpio = <&gpio5 14 GPIO_ACTIVE_LOW>;
        boot0-gpio = <&gpio5 15 GPIO_ACTIVE_HIGH>;
        reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
+       alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
        spi-max-frequency = <4000000>;
        reg = <0>;
     };
@@ -547,7 +548,7 @@
 				MX6QDL_PAD_GPIO_8__GPIO1_IO08		0x80000000		/* LCD flip V */
 				MX6QDL_PAD_GPIO_9__GPIO1_IO09		0x0001b000		/* GP--HP_DET, pullup */
 				MX6QDL_PAD_GPIO_18__GPIO7_IO13		0x0001b8b1 		/* GP--CTP_nINT (touch interrupt */
-				MX6QDL_PAD_GPIO_19__GPIO4_IO05		0x80000000		/* DC_IN_nFLG (adapter detect) */
+                MX6QDL_PAD_GPIO_19__GPIO4_IO05      0x1b0b1         /* DC_IN_nFLG (used as alert) */
 				MX6QDL_PAD_NANDF_CS0__GPIO6_IO11	0x80000000		/* GP--WL_VDDIO_EN */
 				MX6QDL_PAD_NANDF_ALE__GPIO6_IO08	0x80000000		/* GP--BT_WAKE */
 				MX6QDL_PAD_NANDF_RB0__GPIO6_IO10	0x0001b000		/* PMIC_INT_B */
@@ -573,11 +574,11 @@
 				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x80000000		/* Phy IRQ */
 				MX6QDL_PAD_ENET_TXD0__GPIO1_IO30	0x80000000		/* DISP0_PWR_EN */
 				MX6QDL_PAD_KEY_COL1__GPIO4_IO08		0x80000000		/* Backlight Enable */
-				MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13	0x00000800		/* PMU_RST_N (OD) */
-				MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x80000000      /* GP_03 (status to PMU) */
-				MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x80000000      /* PMU BOOT0 */
-				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16	0x130b1		    /* GP_PMU_01 (IRQ) */
-				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17	0x80000000	    /* GP_PMU_02 (status) */
+                MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13  0x0000A800      /* PMU_RST_N (OD) */
+                MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x1b0b1         /* GP_03 (status to PMU) */
+                MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x1b0b0         /* PMU BOOT0 */
+                MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16  0x1b0b1         /* GP_PMU_01 (IRQ) */
+                MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17  0x1b0b1         /* GP_PMU_02 (status) */
 			>;
 		};
 	};

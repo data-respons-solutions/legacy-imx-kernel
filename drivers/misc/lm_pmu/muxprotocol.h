@@ -16,10 +16,9 @@ typedef enum MpuMsgType
 	msg_ina,
 	msg_poweroff,	/* Switch off power */
 	msg_valid,		/* Get the status of valid lines */
+	msg_charge,
+	msg_nack,
 } MpuMsgType_t;
-
-/* Set this bit in the type field of the return message on error */
-#define MPU_MSG_ERROR_SET 0x8000
 
 typedef struct MpuMsgHeader
 {
@@ -42,4 +41,25 @@ MpuVersionHeader_t* mpu_get_version_header(const u8 *buffer);
 
 
 u32 valid_get_data(u8 *buffer);
+
+
+/**********************************
+ *
+ * Charge messages
+ */
+typedef enum ChargeMessageType
+{
+	msg_chargeEnable = 0,
+	msg_chargeDisable
+} ChargeMessageType_t;
+
+typedef struct ChargeMessage
+{
+	u16 type;
+	u16 chargeMask;		/* Bit field */
+} ChargeMessage_t;
+
+ChargeMessage_t charge_get_message(u8 *buffer);
+int charge_create_message(ChargeMessageType_t type, u8 *buffer, u16 mask);
+
 #endif // MUXPROTOCOL_H

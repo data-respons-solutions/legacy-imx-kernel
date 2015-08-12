@@ -1,7 +1,21 @@
-config LM_PMU
-	tristate "Laerdal PMU driver"
+config LM_PMU_LINKBOX
+    bool
 	depends on SPI
 	depends on OF
 	default n
-	help
-	  Say Y here to include support for Laerdal PMU uC
+
+config LM_PMU_SIMPAD
+    bool
+    depends on SPI
+    depends on OF
+    default n
+      
+config LM_PMU
+    tristate "Laerdal PMU drivers"
+    depends on SPI
+    depends on OF
+    default n
+    select LM_PMU_LINKBOX
+    select LM_PMU_SIMPAD
+    help
+      Say Y here to include support for Laerdal PMU uC

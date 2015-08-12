@@ -134,19 +134,6 @@
 			value = <1>;
 		};
 		
-		gpio-charger2-en {
-			gpios = <&gpio4 10 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <1>;
-		};
-		
-		gpio-charger-en {
-			gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <1>;
-		};
-
-		
 		gpio-hw-setting0 {
 			gpios = <&gpio3 27 GPIO_ACTIVE_HIGH>;
 			status = "okay";
@@ -178,22 +165,6 @@
 			gpios = <&gpio4 28 GPIO_ACTIVE_HIGH>;
 			status = "okay";
 			bidir;
-		};
-		
-		gpio-boost-12v-enable {
-			gpios = <&gpio4 29 GPIO_ACTIVE_HIGH>;
-			status = "okay";
-			value = <0>;
-		};
-		
-		gpio-bat1-det {
-			gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;
-			status = "okay";
-		};
-		
-		gpio-bat2-det {
-			gpios = <&gpio5 5 GPIO_ACTIVE_LOW>;
-			status = "okay";
 		};
 		
 		gpio-can-en {
@@ -307,8 +278,7 @@
 			"Ext Spk", "SPK_LN",
 			"MICB", "AMIC",
 			"RINPUT1", "AMIC",
-			"LINPUT1", "AMIC",
-			"OUT3", "OUT3";
+			"LINPUT1", "AMIC";
 		mux-int-port = <2>;
 		mux-ext-port = <3>;
 		hp-det-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
@@ -383,7 +353,9 @@
        alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
        spi-max-frequency = <4000000>;
        manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
-       manikin-12v-gpio = <&gpio4 8 GPIO_ACTIVE_HIGH>;
+       manikin-12v-gpio = <&gpio4 8 GPIO_ACTIVE_HIGH &gpio4 29 GPIO_ACTIVE_HIGH>;
+       bat-detect-gpios = <&gpio4 31 GPIO_ACTIVE_LOW &gpio5 5 GPIO_ACTIVE_LOW>;
+       bat-disable-gpios = <&gpio4 23 GPIO_ACTIVE_HIGH &gpio4 24 GPIO_ACTIVE_HIGH>;
        reg = <0>;
     };
 };
@@ -620,10 +592,7 @@
 			fsl,pins = <
 				MX6QDL_PAD_KEY_COL1__GPIO4_IO08		0x80000000		/* AUX_12V_EN (manikin) */
 				MX6QDL_PAD_KEY_ROW1__GPIO4_IO09		0x80000000		/* AUX_5V_EN (manikin) */
-				MX6QDL_PAD_KEY_COL2__GPIO4_IO10		0x80000000		/* CHARGER2_CE_N	*/
 				MX6QDL_PAD_KEY_ROW2__GPIO4_IO11		0x80000000		/* VCC_5V_EN (system 5v) */
-				MX6QDL_PAD_KEY_COL4__GPIO4_IO14		0x80000000		/* CHARGER_CE_N */
-				MX6QDL_PAD_KEY_ROW4__GPIO4_IO15		0x80000000		/* PMIC_5V_EN */
 				MX6QDL_PAD_GPIO_0__CCM_CLKO1		0x130b0  		/* External audio clk */
 				MX6QDL_PAD_GPIO_1__WDOG2_B			0x80000000
 				MX6QDL_PAD_GPIO_5__GPIO1_IO05		0x80000000		/* SPK_SD_N */
@@ -655,13 +624,15 @@
 				MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25	0x80000000		/* Phy reset (low) */
 				MX6QDL_PAD_ENET_RXD0__GPIO1_IO27    0x80000000      /* Schematic error, set to input */
 				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x80000000		/* Phy IRQ */
+				MX6QDL_PAD_DISP0_DAT2__GPIO4_IO23   0x00002000      /* UV2 (pulldown)*/
+				MX6QDL_PAD_DISP0_DAT3__GPIO4_IO24   0x00002000      /* UV3 (pulldown)*/
 				MX6QDL_PAD_DISP0_DAT4__GPIO4_IO25	0x80000000		/* AC5W_SD */
 				MX6QDL_PAD_DISP0_DAT5__GPIO4_IO26	0x80000000		/* MCU_RST */
 				MX6QDL_PAD_DISP0_DAT6__GPIO4_IO27	0x80000000		/* MCU_BOOT0 */
 				MX6QDL_PAD_DISP0_DAT7__GPIO4_IO28	0x80000000		/* MCU_BOOT1 */
 				MX6QDL_PAD_DISP0_DAT8__GPIO4_IO29	0x80000000		/* BOOST_12V_EN */
-				MX6QDL_PAD_DISP0_DAT10__GPIO4_IO31	0x80000000		/* BAT1_DET_N */
-				MX6QDL_PAD_DISP0_DAT11__GPIO5_IO05	0x80000000		/* BAT2_DET_N */
+				MX6QDL_PAD_DISP0_DAT10__GPIO4_IO31	0x0001b000		/* BAT1_DET_N */
+				MX6QDL_PAD_DISP0_DAT11__GPIO5_IO05	0x0001b000		/* BAT2_DET_N */
 				MX6QDL_PAD_DISP0_DAT12__GPIO5_IO06	0x80000000		/* WIFI_LED_G */
 				MX6QDL_PAD_DISP0_DAT13__GPIO5_IO07	0x80000000		/* WIFI_LED_B */
 				MX6QDL_PAD_DISP0_DAT14__GPIO5_IO08	0x80000000		/* WIFI_LED_R */
