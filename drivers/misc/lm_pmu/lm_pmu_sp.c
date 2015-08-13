@@ -36,6 +36,12 @@ struct lm_pmu_sp {
 	struct lm_pmu_private *priv;
 	struct power_supply *ps_dcin;
 	int psu_valids;						/* Bit field fpr valid[1:3] */
+	int charge_enable_gpio;
+	bool charge_enable_gpio_active_low;
+	int charge_iset_gpio;
+	bool charge_iset_gpio_active_low;
+	bool charge_high_current;
+	bool charge_enable;
 };
 
 static enum power_supply_property dcin_props_sp[] = {
@@ -62,12 +68,11 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 {
 	struct lm_pmu_private *priv = dev_get_drvdata(psy->dev->parent);
 	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
-	//lm_pmu_get_valids(pmu);
+	lm_pmu_get_valids(pmu);
 
 	switch (psp)
 	{
 	case POWER_SUPPLY_PROP_ONLINE:
-		if (pmu->psu_valids & 1)
 		val->intval = pmu->psu_valids & 1 ? 1 : 0;
 		break;
 
@@ -78,7 +83,64 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 	return 0;
 }
 
+static ssize_t lm_pmu_show_bat(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct lm_pmu_private *priv = dev_get_drvdata(dev->parent);
+	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
 
+	if (strcmp(attr->attr.name, "bat_charge_en") == 0) {
+		return sprintf(buf, "%d\n", pmu->charge_enable);
+	}
+	if (strcmp(attr->attr.name, "bat_high_current") == 0) {
+		return sprintf(buf, "%d\n", pmu->charge_high_current);
+	}
+	return -EINVAL;
+}
+
+static ssize_t lm_pmu_set_bat(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	struct lm_pmu_private *priv = dev_get_drvdata(dev->parent);
+	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
+	bool enable = buf[0] == '1' ? 1 : 0;
+
+	if (strcmp(attr->attr.name, "bat_charge_en") == 0) {
+		pmu->charge_enable = enable;
+		if (enable)
+			gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 0 : 1);
+
+		else
+			gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 1 : 0);
+		return count;
+	}
+	else if (strcmp(attr->attr.name, "bat_high_current") == 0) {
+		pmu->charge_high_current = enable;
+		if (enable)
+			gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 0 : 1);
+		else
+			gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
+		return count;
+	}
+
+	return -EINVAL;
+}
+
+
+DEVICE_ATTR(bat_charge_en, 0644, lm_pmu_show_bat, lm_pmu_set_bat);
+DEVICE_ATTR(bat_high_current, 0644, lm_pmu_show_bat, lm_pmu_set_bat);
+
+static struct attribute *bat_sysfs_attr[] = {
+	&dev_attr_bat_charge_en.attr,
+	&dev_attr_bat_high_current.attr,
+	NULL,
+};
+
+static const struct attribute_group bat_sysfs_attr_group = {
+	.attrs = bat_sysfs_attr,
+};
 
 /**********************************************************************
  *  Parse DT
@@ -88,8 +150,36 @@ static int lm_pmu_dt(struct lm_pmu_sp *pmu)
 {
 	struct device *dev = &pmu->priv->spi_dev->dev;
 	struct device_node *np = dev->of_node;
-	int n, num_gpio;
+	enum of_gpio_flags flag;
+	pmu->charge_enable_gpio = of_get_named_gpio_flags(np, "charge-enable-gpio", 0, &flag);
+	if (gpio_is_valid(pmu->charge_enable_gpio)) {
+		if (devm_gpio_request_one(dev, pmu->charge_enable_gpio,
+				flag == OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+						"charge-en")) {
+			dev_err(dev, "%s: unable to request GPIO charge-enable-gpio [%d]\n", __func__, pmu->charge_enable_gpio);
+			return EINVAL;
+		}
+		pmu->charge_enable_gpio_active_low = flag == OF_GPIO_ACTIVE_LOW;
+	}
+	else {
+		dev_err(dev, "%s: invalid GPIO charge-enable-gpio [%d]\n", __func__, pmu->charge_enable_gpio);
+		return -EINVAL;
+	}
 
+	pmu->charge_iset_gpio = of_get_named_gpio_flags(np, "charge-iset-gpio", 0, &flag);
+	if (gpio_is_valid(pmu->charge_iset_gpio)) {
+		if (devm_gpio_request_one(dev, pmu->charge_iset_gpio,
+				flag == OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+						"charge-en")) {
+			dev_err(dev, "%s: unable to request GPIO charge-enable-gpio [%d]\n", __func__, pmu->charge_iset_gpio);
+			return EINVAL;
+		}
+		pmu->charge_iset_gpio_active_low = flag == OF_GPIO_ACTIVE_LOW;
+	}
+	else {
+		dev_err(dev, "%s: invalid GPIO charge-enable-gpio [%d]\n", __func__, pmu->charge_iset_gpio);
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -114,6 +204,7 @@ static int lm_pmu_sp_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
+	pm_power_off = lm_pmu_poweroff;
 
 	pmu->ps_dcin = devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
 	if (!pmu->ps_dcin) {
@@ -130,6 +221,9 @@ static int lm_pmu_sp_probe(struct spi_device *spi)
 	if (ret < 0) {
 		dev_err(&spi->dev, "Unable to register MAINS PS\n");
 	}
+	else {
+		ret = sysfs_create_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
+	}
 
 	return 0;
 
@@ -141,7 +235,10 @@ cleanup:
 static int lm_pmu_sp_remove(struct spi_device *spi)
 {
 	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
-	//struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
+	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
+	gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 1 : 0);
+	gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
+	sysfs_remove_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
 	lm_pmu_deinit(priv);
 	return 0;
 }

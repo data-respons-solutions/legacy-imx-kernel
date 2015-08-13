@@ -184,18 +184,6 @@
 			value = <1>;
 		};
 		
-		gpio-charger-nce {
-			gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <0>;
-		};
-		
-		gpio-charger-iset {
-			gpios = <&gpio3 23 GPIO_ACTIVE_LOW>;
-			status = "okay";
-			value = <0>;
-		};
-		
 		gpio-phy-rst {
 			gpios = <&gpio1 25 GPIO_ACTIVE_HIGH>;
 			status = "okay";
@@ -325,6 +313,8 @@
        boot0-gpio = <&gpio5 15 GPIO_ACTIVE_HIGH>;
        reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
        alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
+       charge-enable-gpio = <&gpio4 14 GPIO_ACTIVE_LOW>;
+       charge-iset-gpio = <&gpio3 23 GPIO_ACTIVE_LOW>;
        spi-max-frequency = <4000000>;
        reg = <0>;
     };
@@ -541,7 +531,7 @@
 				MX6QDL_PAD_GPIO_4__GPIO1_IO04	 	0x0001b000		/* Function key (active low, pullup) */
 				MX6QDL_PAD_KEY_COL2__GPIO4_IO10		0x80000000		/* Touch reset (low)	*/
 				MX6QDL_PAD_KEY_ROW1__GPIO4_IO09		0x80000000		/* AUX_5V_EN */
-				MX6QDL_PAD_KEY_COL4__GPIO4_IO14		0x80000000		/* GP--Charger_nCE */
+				MX6QDL_PAD_KEY_COL4__GPIO4_IO14		0x1b0b1		    /* GP--Charger_nCE */
 				MX6QDL_PAD_GPIO_0__CCM_CLKO1		0x130b0  		/* External audio clk */
 				MX6QDL_PAD_GPIO_1__WDOG2_B			0x80000000
 				MX6QDL_PAD_GPIO_7__GPIO1_IO07		0x80000000		/* LCD flip H */
@@ -560,7 +550,7 @@
 				MX6QDL_PAD_NANDF_D7__GPIO2_IO07		0x80000000		/* GP--WL_DEV_WAKE */
 				MX6QDL_PAD_EIM_A25__GPIO5_IO02		0x0001b000		/* Recovery_setting (control boot) */
 				MX6QDL_PAD_EIM_D20__GPIO3_IO20		0x80000000		/* GP--nWP--flash (SPI flash WP) */
-				MX6QDL_PAD_EIM_D23__GPIO3_IO23		0x80000000		/* GP--CHarger_ISET */
+				MX6QDL_PAD_EIM_D23__GPIO3_IO23		0x1b0b1		   /* GP--CHarger_ISET */
 				MX6QDL_PAD_EIM_D26__GPIO3_IO26		0x80000000		/* GP--WL_BAT_PWR_EN */
 				MX6QDL_PAD_EIM_D27__GPIO3_IO27		0x0001b000		/* HW_Setting_0 */
 				MX6QDL_PAD_EIM_D28__GPIO3_IO28		0x0001b000		/* HW_Setting_1 */
@@ -600,7 +590,7 @@
 				MX6QDL_PAD_EIM_OE__ECSPI2_MISO	0x100b1
 				MX6QDL_PAD_EIM_CS1__ECSPI2_MOSI	0x100b1
 				MX6QDL_PAD_EIM_CS0__ECSPI2_SCLK	0x100b1
-				MX6QDL_PAD_DISP0_DAT18__GPIO5_IO12	0x70c1
+				MX6QDL_PAD_DISP0_DAT18__GPIO5_IO12	0x100b1
 			>;
 		};
 	};
