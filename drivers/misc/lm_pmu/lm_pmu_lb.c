@@ -519,6 +519,10 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 		}
 		pmu->gpio_5v_manikin_active_low = flag == OF_GPIO_ACTIVE_LOW;
 	}
+	else {
+		dev_err(dev, "%s: Invalid GPIO manikin-5v-gpio [%d]\n", __func__, pmu->gpio_5v_manikin);
+		return -EINVAL;
+	}
 
 	pmu->gpio_bat_det[0] = pmu->gpio_bat_det[1] = -1;
 	num_gpio = of_gpio_named_count(np, "bat-detect-gpios");
@@ -643,6 +647,9 @@ static int lm_pmu_lb_remove(struct spi_device *spi)
 {
 	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
+	lm_pmu_set_charge(priv, msg_chargeDisable, 0xf);
+	gpio_set_value(pmu->gpio_bat_disable[1], pmu->gpio_bat_disable_active_low[0] ? 1 : 0);
+	gpio_set_value(pmu->gpio_bat_disable[1], pmu->gpio_bat_disable_active_low[1] ? 1 : 0);
 	sysfs_remove_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
 	lm_pmu_deinit(priv);
 	return 0;

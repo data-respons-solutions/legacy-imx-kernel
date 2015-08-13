@@ -146,12 +146,11 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 	mutex_lock(&priv->serial_lock);
 	priv->acked = false;
 	sz = mpu_create_message(proto, priv->outgoing_buffer, tx_buffer, tx_len );
-	if (status == 0 && priv->gpio_msg_complete >= 0)
-		gpio_set_value(priv->gpio_msg_complete, 0);
 	status = spi_write(priv->spi_dev, (const void*)priv->outgoing_buffer, sz);
-	if (status == 0 && priv->gpio_msg_complete >= 0) {
-		gpio_set_value(priv->gpio_msg_complete, 1);
-	}
+	usleep_range(200, 300);
+	gpio_set_value(priv->gpio_msg_complete, 0);
+	usleep_range(200, 300);
+	gpio_set_value(priv->gpio_msg_complete, 1);
 #ifdef DEBUG
 	lm_pmu_show_msg(priv, "Send:", priv->outgoing_buffer, sz);
 #endif
