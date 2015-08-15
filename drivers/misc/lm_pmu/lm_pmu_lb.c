@@ -54,12 +54,14 @@ struct lm_pmu_lb {
 	bool gpio_5v_manikin_active_low;
 	int gpio_bat_det[2];
 	bool gpio_bat_det_active_low[2];
+	int battery_detect_irqs[2];
 	int gpio_bat_disable[2];
 	bool gpio_bat_disable_active_low[2];
 	bool bat_disabled[2];
 	bool bat_ce[2];
 	bool bat_detect[2];
 	struct notifier_block ps_dcin_nb;
+	struct work_struct alert_work;
 };
 
 /* Sensors */
@@ -237,16 +239,19 @@ static int lm_pmu_manikin_12v_set_property(struct power_supply *psy,
 	struct lm_pmu_private *priv = dev_get_drvdata(psy->dev->parent);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
 
-	int gpioval[2];
-	int n;
-	for (n=0; n < 2; n++)
-		gpioval[n] = pmu->gpio_12v_manikin_active_low[n] ? (val->intval ? 0 : 1) : (val->intval ? 1 : 0);
-
 	switch (psp)
 	{
 	case POWER_SUPPLY_PROP_ONLINE:
-		gpio_set_value(pmu->gpio_12v_manikin[0], gpioval[0]);
-		gpio_set_value(pmu->gpio_12v_manikin[1], gpioval[1]);
+		if (val->intval) {
+			gpio_set_value(pmu->gpio_12v_manikin[0], pmu->gpio_12v_manikin_active_low[0] ? 0 : 1);
+			msleep(50);
+			gpio_set_value(pmu->gpio_12v_manikin[1], pmu->gpio_12v_manikin_active_low[1] ? 0 : 1);
+		}
+		else  {
+			gpio_set_value(pmu->gpio_12v_manikin[1], pmu->gpio_12v_manikin_active_low[1] ? 1 : 0);
+			msleep(10);
+			gpio_set_value(pmu->gpio_12v_manikin[0], pmu->gpio_12v_manikin_active_low[0] ? 1 : 0);
+		}
 		pmu->manikin_12v_power_on = val->intval ? true : false;
 		power_supply_changed(psy);
 		break;
@@ -319,12 +324,10 @@ static ssize_t lm_pmu_show_bat_det(struct device *dev,
 		return sprintf(buf, "%d\n", pmu->bat_detect[1]);
 	}
 	if (strcmp(attr->attr.name, "bat_valid1") == 0) {
-		lm_pmu_get_valids(pmu);
 		return sprintf(buf, "%d\n", (pmu->psu_valids & VALID_MASK_BAT1) ? 1 : 0);
 	}
 
 	if (strcmp(attr->attr.name, "bat_valid2") == 0) {
-		lm_pmu_get_valids(pmu);
 		return sprintf(buf, "%d\n", (pmu->psu_valids & VALID_MASK_BAT2) ? 1 : 0);
 	}
 	return -EINVAL;
@@ -475,6 +478,37 @@ static const struct attribute_group bat_sysfs_attr_group = {
 	.attrs = bat_sysfs_attr,
 };
 
+
+static irqreturn_t alert_irq(void *_ptr)
+{
+	struct lm_pmu_lb *pmu = _ptr;
+	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	schedule_work(&pmu->alert_work);
+	return IRQ_HANDLED;
+}
+
+static void alert_handler(struct work_struct *ws)
+{
+	struct lm_pmu_lb *pmu = container_of(ws, struct lm_pmu_lb, alert_work);
+	int last_valids = pmu->psu_valids;
+	int changed_values;
+	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	if (lm_pmu_get_valids(pmu) == 0) {
+		changed_values = last_valids ^ pmu->psu_valids;
+		if (changed_values & VALID_MASK_DCIN)
+			power_supply_changed(pmu->ps_dcin);
+
+		if (changed_values & VALID_MASK_BAT1) {
+			sysfs_notify(&pmu->ps_dcin->dev->kobj, NULL, "bat_valid1");
+		}
+		if (changed_values & VALID_MASK_BAT1) {
+			sysfs_notify(&pmu->ps_dcin->dev->kobj, NULL, "bat_valid2");
+		}
+	}
+
+}
+
+
 /**********************************************************************
  *  Parse DT
  */
@@ -562,6 +596,7 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 {
 	struct lm_pmu_lb *pmu;
 	int ret=0;
+	int n;
 
 	pmu = devm_kzalloc(&spi->dev, sizeof(*pmu), GFP_KERNEL);
 	if (!pmu)
@@ -582,6 +617,10 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 	pmu->manikin_5v_power_on = false;
 
 
+	if (!pmu->priv->pmu_ready)
+		return 0;
+
+	lm_pmu_get_valids(pmu);
 	pmu->ps_dcin = devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
 	if (!pmu->ps_dcin) {
 		ret = -ENOMEM;
@@ -636,6 +675,9 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 	if (ret < 0) {
 		dev_err(&spi->dev, "Unable to register MANIKIN 5V PS\n");
 	}
+
+	INIT_WORK(&pmu->alert_work, alert_handler);
+	pmu->priv->alert_cb = alert_irq;
 	return 0;
 
 cleanup:
@@ -647,10 +689,13 @@ static int lm_pmu_lb_remove(struct spi_device *spi)
 {
 	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
-	lm_pmu_set_charge(priv, msg_chargeDisable, 0xf);
-	gpio_set_value(pmu->gpio_bat_disable[1], pmu->gpio_bat_disable_active_low[0] ? 1 : 0);
+	if (priv->pmu_ready) {
+		lm_pmu_set_charge(priv, msg_chargeDisable, 0xf);
+		sysfs_remove_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
+	}
+	gpio_set_value(pmu->gpio_bat_disable[0], pmu->gpio_bat_disable_active_low[0] ? 1 : 0);
 	gpio_set_value(pmu->gpio_bat_disable[1], pmu->gpio_bat_disable_active_low[1] ? 1 : 0);
-	sysfs_remove_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
+
 	lm_pmu_deinit(priv);
 	return 0;
 }
