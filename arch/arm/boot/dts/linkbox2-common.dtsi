@@ -353,9 +353,9 @@
        alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
        spi-max-frequency = <4000000>;
        manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
-       manikin-12v-gpio = <&gpio4 8 GPIO_ACTIVE_HIGH &gpio4 29 GPIO_ACTIVE_HIGH>;
-       bat-detect-gpios = <&gpio4 31 GPIO_ACTIVE_LOW &gpio5 5 GPIO_ACTIVE_LOW>;
-       bat-disable-gpios = <&gpio4 23 GPIO_ACTIVE_HIGH &gpio4 24 GPIO_ACTIVE_HIGH>;
+       manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;
+       bat-detect-gpios = <&gpio5 5 GPIO_ACTIVE_LOW &gpio4 31 GPIO_ACTIVE_LOW>;
+       bat-disable-gpios = <&gpio4 24 GPIO_ACTIVE_HIGH &gpio4 23 GPIO_ACTIVE_HIGH>;
        reg = <0>;
     };
 };

@@ -42,6 +42,7 @@ struct lm_pmu_sp {
 	bool charge_iset_gpio_active_low;
 	bool charge_high_current;
 	bool charge_enable;
+	struct work_struct alert_work;
 };
 
 static enum power_supply_property dcin_props_sp[] = {
@@ -68,7 +69,6 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 {
 	struct lm_pmu_private *priv = dev_get_drvdata(psy->dev->parent);
 	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
-	lm_pmu_get_valids(pmu);
 
 	switch (psp)
 	{
@@ -142,6 +142,23 @@ static const struct attribute_group bat_sysfs_attr_group = {
 	.attrs = bat_sysfs_attr,
 };
 
+static irqreturn_t alert_irq(void *_ptr)
+{
+	struct lm_pmu_sp *pmu = _ptr;
+	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	schedule_work(&pmu->alert_work);
+	return IRQ_HANDLED;
+}
+
+static void alert_handler(struct work_struct *ws)
+{
+	struct lm_pmu_sp *pmu = container_of(ws, struct lm_pmu_sp, alert_work);
+	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	if (lm_pmu_get_valids(pmu) == 0) {
+		power_supply_changed(pmu->ps_dcin);
+	}
+
+}
 /**********************************************************************
  *  Parse DT
  */
@@ -204,6 +221,10 @@ static int lm_pmu_sp_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
+	if (!pmu->priv->pmu_ready)
+		return 0;
+
+	lm_pmu_get_valids(pmu);
 	pm_power_off = lm_pmu_poweroff;
 
 	pmu->ps_dcin = devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
@@ -220,11 +241,14 @@ static int lm_pmu_sp_probe(struct spi_device *spi)
 	ret = power_supply_register(&spi->dev, pmu->ps_dcin);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Unable to register MAINS PS\n");
+		goto cleanup;
 	}
 	else {
 		ret = sysfs_create_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
 	}
 
+	INIT_WORK(&pmu->alert_work, alert_handler);
+	pmu->priv->alert_cb = alert_irq;
 	return 0;
 
 cleanup:

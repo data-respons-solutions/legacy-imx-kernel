@@ -8,17 +8,33 @@
 #include "common_defs.h"
 #endif
 
+/**	@brief Defines the commands supported by the protocol.
+ *
+ * 	Adding new commands introduces a new major version
+*/
 typedef enum MpuMsgType
 {
-	msg_oneWire=0,
-	msg_rtc,
-	msg_version,
-	msg_ina,
-	msg_poweroff,	/* Switch off power */
-	msg_valid,		/* Get the status of valid lines */
-	msg_charge,
-	msg_nack,
+	msg_version=0,
+	msg_nack=1,
+	msg_reset=2,
+	msg_rtc=3,
+	msg_ina=4,
+	msg_poweroff=5,		/* Switch off power */
+	msg_valid=6,		/* Get the status of valid lines */
+	msg_charge=7,
+
 } MpuMsgType_t;
+
+/**	@brief  Expand this level table for new majors.
+ *
+ * 	The index is the major version and the ordinate is the last
+ * 	command supported as given in then protocol enumeration
+ */
+static const MpuMsgType_t version_levels[] = {
+	msg_charge,		/* Major level 0 */
+};
+static const int version_majors = sizeof(version_levels);
+
 
 typedef struct MpuMsgHeader
 {
@@ -35,6 +51,7 @@ typedef struct MpuVersionHeader
 {
 	u16 ver_major;
 	u16 ver_minor;
+	char git_info[80];
 } MpuVersionHeader_t;
 
 MpuVersionHeader_t* mpu_get_version_header(const u8 *buffer);

@@ -31,9 +31,12 @@ u8* mpu_get_payload(u8 *buffer)
 MpuVersionHeader_t* mpu_get_version_header(const u8 *buffer)
 {
 	MpuVersionHeader_t *hdr = (MpuVersionHeader_t*)buffer;
-
+	int n = strnlen(hdr->git_info, sizeof(hdr->git_info));
+	if ( n == sizeof(hdr->git_info))
+		hdr->git_info[sizeof(hdr->git_info)-1] = '\0';
     hdr->ver_major = le16_to_cpu(hdr->ver_major);
 	hdr->ver_minor = le16_to_cpu(hdr->ver_minor);
+
     return hdr;
 }
 

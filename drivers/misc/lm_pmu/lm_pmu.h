@@ -29,7 +29,11 @@ struct lm_pmu_private {
 	int gpio_irq;
 	int gpio_irq_nr;
 	int gpio_alert;
+	int gpio_alert_irq_nr;
+	MpuVersionHeader_t version;
 	void *subclass_data;
+	bool pmu_ready;
+	irqreturn_t (*alert_cb)(void*);
 };
 
 
