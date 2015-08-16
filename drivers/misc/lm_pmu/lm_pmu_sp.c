@@ -260,11 +260,18 @@ static int lm_pmu_sp_remove(struct spi_device *spi)
 {
 	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
 	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
-	gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 1 : 0);
-	gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
+
 	sysfs_remove_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
 	lm_pmu_deinit(priv);
 	return 0;
+}
+
+static void lm_pmu_sp_shutdown(struct spi_device *spi)
+{
+	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
+	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
+	gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 1 : 0);
+	gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
 }
 
 static struct spi_driver lm_pmu_sp_driver = {
@@ -275,6 +282,7 @@ static struct spi_driver lm_pmu_sp_driver = {
 	},
 	.probe	= lm_pmu_sp_probe,
 	.remove	= lm_pmu_sp_remove,
+	.shutdown = lm_pmu_sp_shutdown,
 	.id_table = lm_pmu_sp_ids,
 };
 
