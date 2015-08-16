@@ -38,6 +38,7 @@ MODULE_DEVICE_TABLE(of, lm_pmu_lb_dt_ids);
 #define VALID_MASK_BAT1 0x2
 #define VALID_MASK_BAT2 0x4
 
+
 struct lm_pmu_lb {
 	struct lm_pmu_private *priv;
 	Ina219Msg_t ina_values;
@@ -62,6 +63,7 @@ struct lm_pmu_lb {
 	bool bat_detect[2];
 	struct notifier_block ps_dcin_nb;
 	struct work_struct alert_work;
+
 };
 
 /* Sensors */
@@ -592,11 +594,11 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 	return 0;
 }
 
+
 static int lm_pmu_lb_probe(struct spi_device *spi)
 {
 	struct lm_pmu_lb *pmu;
 	int ret=0;
-	int n;
 
 	pmu = devm_kzalloc(&spi->dev, sizeof(*pmu), GFP_KERNEL);
 	if (!pmu)
@@ -619,6 +621,7 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 
 	if (!pmu->priv->pmu_ready)
 		return 0;
+
 
 	lm_pmu_get_valids(pmu);
 	pmu->ps_dcin = devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
@@ -690,14 +693,23 @@ static int lm_pmu_lb_remove(struct spi_device *spi)
 	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
 	if (priv->pmu_ready) {
-		lm_pmu_set_charge(priv, msg_chargeDisable, 0xf);
 		sysfs_remove_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
 	}
+	lm_pmu_deinit(priv);
+	return 0;
+}
+
+static void lm_pmu_lb_shutdown(struct spi_device *spi)
+{
+	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
+	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
 	gpio_set_value(pmu->gpio_bat_disable[0], pmu->gpio_bat_disable_active_low[0] ? 1 : 0);
 	gpio_set_value(pmu->gpio_bat_disable[1], pmu->gpio_bat_disable_active_low[1] ? 1 : 0);
 
-	lm_pmu_deinit(priv);
-	return 0;
+	if (priv->pmu_ready) {
+		lm_pmu_set_charge(priv, msg_chargeDisable, 0xf);
+		lm_pmu_poweroff();
+	}
 }
 
 
@@ -710,6 +722,7 @@ static struct spi_driver lm_pmu_lb_driver = {
 	},
 	.probe	= lm_pmu_lb_probe,
 	.remove	= lm_pmu_lb_remove,
+	.shutdown = lm_pmu_lb_shutdown,
 	.id_table = lm_pmu_lb_ids,
 };
 

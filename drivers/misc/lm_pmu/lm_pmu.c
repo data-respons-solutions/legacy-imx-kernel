@@ -1,4 +1,3 @@
-#define DEBUG
 
 #include <linux/err.h>
 #include <linux/errno.h>
