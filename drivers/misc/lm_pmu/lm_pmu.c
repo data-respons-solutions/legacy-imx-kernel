@@ -1,4 +1,4 @@
-
+#define DEBUG
 
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -299,13 +299,29 @@ struct rtc_class_ops lm_pmu_rtc_ops = {
 static int lm_pmu_get_version(struct lm_pmu_private *priv)
 {
 	int status=0;
-	status = lm_pmu_exchange(priv, msg_version, 0, 0, (u8*)&priv->version, sizeof(priv->version));
+	u8 buffer[sizeof(MpuVersionHeader_t)];
+	status = lm_pmu_exchange(priv, msg_version, 0, 0, buffer, sizeof(buffer));
 	if (status < 0)
 		dev_err(&priv->spi_dev->dev, "%s: failed\n", __func__);
 	else {
+		priv->version = *mpu_get_version_header(buffer);
 		dev_info(&priv->spi_dev->dev, "Version %d.%d [%s]\n",
 				priv->version.ver_major, priv->version.ver_minor,
 				priv->version.git_info);
+	}
+	return status;
+}
+
+static int lm_pmu_get_init(struct lm_pmu_private *priv)
+{
+	int status=0;
+	u8 buffer[sizeof(InitMessage_t)];
+	status = lm_pmu_exchange(priv, msg_init, 0, 0, buffer, sizeof(buffer));
+	if (status < 0)
+		dev_err(&priv->spi_dev->dev, "%s: failed\n", __func__);
+	else {
+		priv->init_status = init_get_message(buffer);
+		dev_info(&priv->spi_dev->dev, "Init status is 0x%x\n", priv->init_status.event_mask);
 	}
 	return status;
 }
@@ -355,18 +371,23 @@ static ssize_t lm_pmu_show_version(struct device *dev,
 	if (strcmp(attr->attr.name, "pmu_git_id") == 0) {
 		return sprintf(buf, "%s\n", priv->version.git_info);
 	}
-	if (strcmp(attr->attr.name, "pmu_version_sw") == 0) {
+	else if (strcmp(attr->attr.name, "pmu_version_sw") == 0) {
 		return sprintf(buf, "%d.%d\n", priv->version.ver_major, priv->version.ver_minor);
+	}
+	else if (strcmp(attr->attr.name, "pmu_reason_booted") == 0) {
+		return sprintf(buf, "%d\n", priv->init_status.event_mask);
 	}
 	return -EINVAL;
 }
 
 DEVICE_ATTR(pmu_version_sw, 0444, lm_pmu_show_version, NULL);
 DEVICE_ATTR(pmu_git_id, 0444, lm_pmu_show_version, NULL);
+DEVICE_ATTR(pmu_reason_booted, 0444, lm_pmu_show_version, NULL);
 
 static struct attribute *version_sysfs_attr[] = {
 	&dev_attr_pmu_version_sw.attr,
 	&dev_attr_pmu_git_id.attr,
+	&dev_attr_pmu_reason_booted.attr,
 	NULL,
 };
 
@@ -503,6 +524,7 @@ struct lm_pmu_private *lm_pmu_init(struct spi_device *spi)
 	}
 	if (ret == 0) {
 		priv->pmu_ready = true;
+		lm_pmu_get_init(priv);
 		ret = sysfs_create_group(&priv->fw_dev.this_device->kobj, &version_sysfs_attr_group);
 		if (ret < 0) {
 			dev_err(&spi->dev, "Failed to register firmware sysfs\n");
