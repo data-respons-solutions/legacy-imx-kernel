@@ -18,10 +18,11 @@ typedef enum MpuMsgType
 	msg_nack=1,
 	msg_reset=2,
 	msg_rtc=3,
-	msg_ina=4,
+	msg_ina=4,			/* Sensor	*/
 	msg_poweroff=5,		/* Switch off power */
 	msg_valid=6,		/* Get the status of valid lines */
 	msg_charge=7,
+	msg_init=8,			/* Reason for start */
 
 } MpuMsgType_t;
 
@@ -36,6 +37,9 @@ static const MpuMsgType_t version_levels[] = {
 static const int version_majors = sizeof(version_levels);
 
 
+/**	@brief 	Main message header
+ *
+ */
 typedef struct MpuMsgHeader
 {
 	u16 type;
@@ -60,9 +64,8 @@ MpuVersionHeader_t* mpu_get_version_header(const u8 *buffer);
 u32 valid_get_data(u8 *buffer);
 
 
-/**********************************
+/**	@brief Charge control message
  *
- * Charge messages
  */
 typedef enum ChargeMessageType
 {
@@ -78,5 +81,25 @@ typedef struct ChargeMessage
 
 ChargeMessage_t charge_get_message(u8 *buffer);
 int charge_create_message(ChargeMessageType_t type, u8 *buffer, u16 mask);
+
+/** @brief	Init message gives the reason cpu was booted
+ */
+
+typedef enum InitEvent
+{
+	msg_initNone=0,
+	msg_initKeyPressed=1,
+	msg_initPowerInserted=2,
+	msg_initBatteryInserted=4,
+} InitEventType_t;
+
+typedef struct InitMessage
+{
+	u32 event_mask;	/* Bit vector of InitEventType_t */
+} InitMessage_t;
+
+InitMessage_t init_get_message(const u8 *buffer);
+int init_create_message(u8 *buffer, u32 emask);
+
 
 #endif // MUXPROTOCOL_H

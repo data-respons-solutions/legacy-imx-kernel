@@ -63,3 +63,18 @@ int charge_create_message(ChargeMessageType_t type, u8 *buffer, u16 mask)
 	p[1] = cpu_to_le16(mask);
 	return 2*sizeof(u16);
 }
+
+
+InitMessage_t init_get_message(const u8 *buffer)
+{
+	InitMessage_t im;
+	u32 *ptr = (u32*)buffer;
+	im.event_mask = le32_to_cpu(ptr[0]);
+	return im;
+}
+
+int init_create_message(u8 *buffer, u32 emask)
+{
+	((u32*)buffer)[0] = cpu_to_le32(emask);
+	return sizeof(u32);
+}

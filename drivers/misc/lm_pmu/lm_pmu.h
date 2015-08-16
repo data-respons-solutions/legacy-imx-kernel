@@ -23,6 +23,7 @@ struct lm_pmu_private {
 	struct miscdevice fw_dev;
 	bool fw_dev_ok;
 	struct stm32fwu_fw *fw;
+	InitMessage_t init_status;	/* Bit vector of InitEventType_t */
 	int gpio_boot0;
 	int gpio_reset;
 	int gpio_msg_complete;
