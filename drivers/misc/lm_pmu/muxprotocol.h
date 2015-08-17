@@ -32,7 +32,7 @@ typedef enum MpuMsgType
  * 	command supported as given in then protocol enumeration
  */
 static const MpuMsgType_t version_levels[] = {
-	msg_charge,		/* Major level 0 */
+	msg_init,		/* Major level 0 */
 };
 static const int version_majors = sizeof(version_levels);
 

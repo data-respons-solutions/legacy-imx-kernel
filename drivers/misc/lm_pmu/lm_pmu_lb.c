@@ -1,3 +1,4 @@
+#define DEBUG
 
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -39,6 +40,11 @@ MODULE_DEVICE_TABLE(of, lm_pmu_lb_dt_ids);
 #define VALID_MASK_BAT2 0x4
 
 
+static char *bat_disable_names[2] = { "bat_disable1", "bat_disable2" };
+static char *bat_detect_names[2] = { "bat_detect1", "bat_detect2" };
+static char *manikin_12v_names[2] = { "12v boost", "12v aux" };
+
+
 struct lm_pmu_lb {
 	struct lm_pmu_private *priv;
 	Ina219Msg_t ina_values;
@@ -63,6 +69,7 @@ struct lm_pmu_lb {
 	bool bat_detect[2];
 	struct notifier_block ps_dcin_nb;
 	struct work_struct alert_work;
+	struct mutex alert_lock;
 
 };
 
@@ -103,13 +110,15 @@ static int lm_pmu_get_valids(struct lm_pmu_lb *pmu)
 {
 	int status=0;
 	u8 rx_buffer[4];
+	mutex_lock(&pmu->alert_lock);
 	status = lm_pmu_exchange(pmu->priv, msg_valid, 0, 0, rx_buffer, sizeof(rx_buffer));
 	if (status < 0)
 		dev_err(&pmu->priv->spi_dev->dev, "%s: failed\n", __func__);
 	else {
 		pmu->psu_valids = le32_to_cpu(*(u32*)rx_buffer);
-		dev_dbg(&pmu->priv->spi_dev->dev, "%s: Valids are 0x%x found\n", __func__, pmu->psu_valids);
+		dev_dbg(&pmu->priv->spi_dev->dev, "%s: Valids are 0x%x\n", __func__, pmu->psu_valids);
 	}
+	mutex_unlock(&pmu->alert_lock);
 	return status;
 }
 
@@ -138,7 +147,6 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 {
 	struct lm_pmu_private *priv = dev_get_drvdata(psy->dev->parent);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
-	lm_pmu_get_valids(pmu);
 	pmu_update_ina_values(pmu);
 
 	switch (psp)
@@ -361,7 +369,6 @@ static ssize_t lm_pmu_set_bat_disable(struct device *dev,
 	bool disable = buf[0] == '1' ? 1 : 0;
 	int n = -1;
 	int mask;
-	lm_pmu_get_valids(pmu);
 	if (strcmp(attr->attr.name, "bat_disable1") == 0) {
 		mask = VALID_MASK_DCIN | VALID_MASK_BAT2;
 		n = 0;
@@ -484,7 +491,7 @@ static const struct attribute_group bat_sysfs_attr_group = {
 static irqreturn_t alert_irq(void *_ptr)
 {
 	struct lm_pmu_lb *pmu = _ptr;
-	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	//dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
 	schedule_work(&pmu->alert_work);
 	return IRQ_HANDLED;
 }
@@ -497,15 +504,9 @@ static void alert_handler(struct work_struct *ws)
 	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
 	if (lm_pmu_get_valids(pmu) == 0) {
 		changed_values = last_valids ^ pmu->psu_valids;
-		if (changed_values & VALID_MASK_DCIN)
+		dev_dbg(&pmu->priv->spi_dev->dev, "%s changemask = 0x%0x\n", __func__, changed_values);
+		if (changed_values)
 			power_supply_changed(pmu->ps_dcin);
-
-		if (changed_values & VALID_MASK_BAT1) {
-			sysfs_notify(&pmu->ps_dcin->dev->kobj, NULL, "bat_valid1");
-		}
-		if (changed_values & VALID_MASK_BAT1) {
-			sysfs_notify(&pmu->ps_dcin->dev->kobj, NULL, "bat_valid2");
-		}
 	}
 
 }
@@ -534,7 +535,7 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 		if (gpio_is_valid(pmu->gpio_12v_manikin[n])) {
 			pmu->gpio_12v_manikin_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
 			rflags = pmu->gpio_12v_manikin_active_low[n] ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
-			if (devm_gpio_request_one(dev, pmu->gpio_12v_manikin[n], rflags, 0) ) {
+			if (devm_gpio_request_one(dev, pmu->gpio_12v_manikin[n], rflags, manikin_12v_names[n]) ) {
 				dev_err(dev, "%s: unable to request GPIO manikin-12v-gpio [%d]\n", __func__, pmu->gpio_12v_manikin[n]);
 				return -EINVAL;
 			}
@@ -569,7 +570,7 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 	for (n=0; n < num_gpio; n++) {
 		pmu->gpio_bat_det[n] = of_get_named_gpio_flags(np, "bat-detect-gpios", n, &flag);
 		if (!gpio_is_valid(pmu->gpio_bat_det[n]) ||
-				devm_gpio_request_one(dev, pmu->gpio_bat_det[n], GPIOF_DIR_IN, 0)) {
+				devm_gpio_request_one(dev, pmu->gpio_bat_det[n], GPIOF_DIR_IN, bat_detect_names[n])) {
 			dev_err(dev, "%s: Unable to request bat_detect pin %d\n", __func__, pmu->gpio_bat_det[n]);
 			return EINVAL;
 		}
@@ -585,7 +586,7 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 	for (n=0; n < num_gpio; n++) {
 		pmu->gpio_bat_disable[n] = of_get_named_gpio_flags(np, "bat-disable-gpios", n, &flag);
 		if (!gpio_is_valid(pmu->gpio_bat_disable[n]) ||
-				devm_gpio_request_one(dev, pmu->gpio_bat_disable[n], GPIOF_DIR_IN, 0)) {
+				devm_gpio_request_one(dev, pmu->gpio_bat_disable[n], GPIOF_DIR_IN, bat_disable_names[n])) {
 			dev_err(dev, "%s: Unable to request bat_disable pin %d\n", __func__, pmu->gpio_bat_disable[n]);
 			return EINVAL;
 		}
@@ -618,6 +619,7 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 	pmu->manikin_12v_power_on = false;
 	pmu->manikin_5v_power_on = false;
 
+	mutex_init(&pmu->alert_lock);
 
 	if (!pmu->priv->pmu_ready)
 		return 0;

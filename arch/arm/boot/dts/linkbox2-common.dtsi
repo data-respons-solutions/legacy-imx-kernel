@@ -541,12 +541,12 @@
 	};
 	
     onewire_1: ds2482@18 {
-        reg = <0x18>;
+        reg = <0x19>;
         compatible = "dallas,ds2482";
     };
     
     onewire_2: ds2482@19 {
-        reg = <0x19>;
+        reg = <0x18>;
         compatible = "dallas,ds2482";
     };
     
@@ -624,8 +624,8 @@
 				MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25	0x80000000		/* Phy reset (low) */
 				MX6QDL_PAD_ENET_RXD0__GPIO1_IO27    0x80000000      /* Schematic error, set to input */
 				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x80000000		/* Phy IRQ */
-				MX6QDL_PAD_DISP0_DAT2__GPIO4_IO23   0x00002000      /* UV2 (pulldown)*/
-				MX6QDL_PAD_DISP0_DAT3__GPIO4_IO24   0x00002000      /* UV3 (pulldown)*/
+				MX6QDL_PAD_DISP0_DAT2__GPIO4_IO23   0x80000000      /* UV2 (pulldown)*/
+				MX6QDL_PAD_DISP0_DAT3__GPIO4_IO24   0x80000000      /* UV3 (pulldown)*/
 				MX6QDL_PAD_DISP0_DAT4__GPIO4_IO25	0x80000000		/* AC5W_SD */
 				MX6QDL_PAD_DISP0_DAT5__GPIO4_IO26	0x80000000		/* MCU_RST */
 				MX6QDL_PAD_DISP0_DAT6__GPIO4_IO27	0x80000000		/* MCU_BOOT0 */
