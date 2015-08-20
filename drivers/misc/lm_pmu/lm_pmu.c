@@ -515,6 +515,11 @@ struct lm_pmu_private *lm_pmu_init(struct spi_device *spi)
 	priv->fw_dev_ok = true;
 	priv->pmu_ready = false;
 
+	/* Send a dummy interrupt to sync with PMU */
+	gpio_set_value(priv->gpio_msg_complete, 0);
+	usleep_range(200, 300);
+	gpio_set_value(priv->gpio_msg_complete, 1);
+	msleep(50);
 	while (trials) {
 		ret = lm_pmu_get_version(priv);
 		if (ret == 0)
