@@ -72,8 +72,6 @@ static int modulated_pwm_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	bool inverted = of_property_read_bool(np, "inverted");
 
-	dev_dbg(&pdev->dev, "%s:\n", __func__);
-
 	pb = devm_kzalloc(&pdev->dev, sizeof(*pb), GFP_KERNEL);
 	if (!pb) {
 		dev_err(&pdev->dev, "no memory for state\n");
@@ -94,7 +92,7 @@ static int modulated_pwm_probe(struct platform_device *pdev)
 		return PTR_ERR(pb->pwm);
 	}
 	pb->period = pwm_get_period(pb->pwm);
-	dev_info(&pdev->dev, "%s: got pwm %d, period %d ns\n", __func__, pb->pwmId,
+	dev_dbg(&pdev->dev, "%s: got pwm %d, period %d ns\n", __func__, pb->pwmId,
 			pb->period);
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_period.attr);
 	if (inverted)
