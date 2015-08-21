@@ -224,7 +224,12 @@ static int lm_pmu_sp_probe(struct spi_device *spi)
 	if (!pmu->priv->pmu_ready)
 		return 0;
 
-	lm_pmu_get_valids(pmu);
+	if (lm_pmu_get_valids(pmu) == 0 && pmu->psu_valids) {
+		gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 0 : 1);
+		pmu->charge_enable = true;
+		dev_info(&spi->dev, "Enabling charger since adapter detected\n");
+	}
+
 	pm_power_off = lm_pmu_poweroff;
 
 	pmu->ps_dcin = devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
