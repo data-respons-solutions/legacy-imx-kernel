@@ -69,7 +69,6 @@ struct lm_pmu_lb {
 	bool bat_detect[2];
 	struct notifier_block ps_dcin_nb;
 	struct work_struct alert_work;
-	struct mutex alert_lock;
 
 };
 
@@ -87,11 +86,12 @@ static int pmu_update_ina_values(struct lm_pmu_lb *pmu)
 	if (time_after(jiffies, pmu->last_ina_update + HZ/INA2XX_CONVERSION_RATE) || !pmu->ina_valid ) {
 		tx_len = ina219_create_message(msg_ina219_show_value, tx_buffer, 0);
 		status = lm_pmu_exchange(pmu->priv, msg_ina, tx_buffer, tx_len, rx_buffer, sizeof(rx_buffer));
-		pmu->last_ina_update = jiffies;
-		pmu->ina_valid = true;
 
 		if (status < 0)
 			goto cleanup;
+
+		pmu->last_ina_update = jiffies;
+		pmu->ina_valid = true;
 
 		payload = ina219_get_payload(rx_buffer);
 		if (payload) {
@@ -110,15 +110,12 @@ static int lm_pmu_get_valids(struct lm_pmu_lb *pmu)
 {
 	int status=0;
 	u8 rx_buffer[4];
-	mutex_lock(&pmu->alert_lock);
 	status = lm_pmu_exchange(pmu->priv, msg_valid, 0, 0, rx_buffer, sizeof(rx_buffer));
 	if (status < 0)
 		dev_err(&pmu->priv->spi_dev->dev, "%s: failed\n", __func__);
 	else {
 		pmu->psu_valids = le32_to_cpu(*(u32*)rx_buffer);
-		dev_dbg(&pmu->priv->spi_dev->dev, "%s: Valids are 0x%x\n", __func__, pmu->psu_valids);
 	}
-	mutex_unlock(&pmu->alert_lock);
 	return status;
 }
 
@@ -145,9 +142,15 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
+	int status;
 	struct lm_pmu_private *priv = dev_get_drvdata(psy->dev->parent);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
-	pmu_update_ina_values(pmu);
+	status = pmu_update_ina_values(pmu);
+	if (status < 0)
+		return status;
+	status = lm_pmu_get_valids(pmu);
+	if (status < 0)
+		return status;
 
 	switch (psp)
 	{
@@ -178,9 +181,12 @@ static int lm_pmu_manikin_12v_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
+	int status;
 	struct lm_pmu_private *priv = dev_get_drvdata(psy->dev->parent);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
-	pmu_update_ina_values(pmu);
+	status = pmu_update_ina_values(pmu);
+	if (status < 0)
+		return status;
 
 	switch (psp)
 	{
@@ -499,15 +505,8 @@ static irqreturn_t alert_irq(void *_ptr)
 static void alert_handler(struct work_struct *ws)
 {
 	struct lm_pmu_lb *pmu = container_of(ws, struct lm_pmu_lb, alert_work);
-	int last_valids = pmu->psu_valids;
-	int changed_values;
 	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
-	if (lm_pmu_get_valids(pmu) == 0) {
-		changed_values = last_valids ^ pmu->psu_valids;
-		dev_dbg(&pmu->priv->spi_dev->dev, "%s changemask = 0x%0x\n", __func__, changed_values);
-		if (changed_values)
-			power_supply_changed(pmu->ps_dcin);
-	}
+	power_supply_changed(pmu->ps_dcin);
 
 }
 
@@ -618,8 +617,6 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 
 	pmu->manikin_12v_power_on = false;
 	pmu->manikin_5v_power_on = false;
-
-	mutex_init(&pmu->alert_lock);
 
 	if (!pmu->priv->pmu_ready)
 		return 0;
