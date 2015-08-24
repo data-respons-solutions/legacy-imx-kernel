@@ -1,4 +1,3 @@
-
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/module.h>
@@ -138,7 +137,6 @@ static const struct file_operations lm_pmu_fops = {
 	.open = lm_pmu_open,
 };
 
-#ifdef DEBUG
 static void lm_pmu_show_msg(struct lm_pmu_private *priv, const char *hdr, u8 *buf, int sz)
 {
 	int n;
@@ -151,9 +149,6 @@ static void lm_pmu_show_msg(struct lm_pmu_private *priv, const char *hdr, u8 *bu
 		p += sprintf(p, "0x%02x,", buf[n]);
 	dev_info(&priv->spi_dev->dev, "%s %s\n", hdr, msg);
 }
-#else
-static void lm_pmu_show_msg(struct lm_pmu_private *priv, const char *hdr, u8 *buf, int sz) {}
-#endif
 
 int lm_pmu_exchange(struct lm_pmu_private *priv,
 		MpuMsgType_t proto,
@@ -164,26 +159,26 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 {
 	int status=0;
 	int sz;
-	MpuMsgHeader_t *msg_hdr;
-	dev_dbg(&priv->spi_dev->dev, "p=%d, txl=%d, rxl=%d\n", proto, tx_len, rx_len);
+	MpuMsgHeader_t msg_hdr;
 	mutex_lock(&priv->serial_lock);
+	dev_dbg(&priv->spi_dev->dev, "p=%d, txl=%d, rxl=%d\n", proto, tx_len, rx_len);
 	priv->acked = false;
 	sz = mpu_create_message(proto, priv->outgoing_buffer, tx_buffer, tx_len );
 	status = spi_write(priv->spi_dev, (const void*)priv->outgoing_buffer, sz);
-	usleep_range(200, 300);
-	gpio_set_value(priv->gpio_msg_complete, 0);
-	usleep_range(200, 300);
-	gpio_set_value(priv->gpio_msg_complete, 1);
-	lm_pmu_show_msg(priv, "Send:", priv->outgoing_buffer, sz);
 	if (status < 0) {
 		dev_err(&priv->spi_dev->dev, "%s: Could not write to pmu\n", __func__);
 		goto exit_unlock;
 	}
+	usleep_range(200, 300);
+	gpio_set_value(priv->gpio_msg_complete, 0);
+	usleep_range(200, 300);
+	gpio_set_value(priv->gpio_msg_complete, 1);
 
 	status = wait_event_interruptible_timeout(priv->wait, priv->acked, msecs_to_jiffies(1000) );
 
 	if (status <= 0) {
-		dev_err(&priv->spi_dev->dev, "%s: Timed out waiting for pmu\n", __func__);
+		dev_err(&priv->spi_dev->dev, "Timed out [%d] waiting for pmu message %d\n", status, proto);
+		lm_pmu_show_msg(priv, "Send:", priv->outgoing_buffer, sz);
 		status = -ETIMEDOUT;
 		goto exit_unlock;
 	}
@@ -195,9 +190,9 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 		goto exit_unlock;
 	}
 	msg_hdr = mpu_message_header(priv->incoming_buffer);
-	if (msg_hdr->type == msg_nack) {
+	if (msg_hdr.type == msg_nack) {
 		lm_pmu_show_msg(priv, "Recv:", priv->incoming_buffer, sizeof(MpuMsgHeader_t));
-		dev_warn(&priv->spi_dev->dev, "%s: Transaction error from MPU\n", __func__);
+		dev_warn(&priv->spi_dev->dev, "%s: Transaction error from PMU on message %d\n", __func__, proto);
 		status = -EINVAL;
 		goto exit_unlock;
 	}
@@ -206,9 +201,6 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 		status = spi_read(priv->spi_dev, priv->incoming_buffer+sizeof(MpuMsgHeader_t), rx_len);
 		memcpy(rx_buffer, mpu_get_payload(priv->incoming_buffer), rx_len);
 	}
-#ifdef DEBUG
-	lm_pmu_show_msg(priv, "Recv:", priv->incoming_buffer, rx_len+sizeof(MpuMsgHeader_t));
-#endif
 
 exit_unlock:
 	mutex_unlock(&priv->serial_lock);

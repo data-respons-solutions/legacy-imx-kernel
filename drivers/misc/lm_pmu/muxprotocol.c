@@ -14,12 +14,12 @@ int mpu_create_message(MpuMsgType_t type, u8 *buffer, const u8 *payload, u16 len
 	return sizeof(MpuMsgHeader_t) + len;
 }
 
-MpuMsgHeader_t *mpu_message_header(u8 *buffer)
+MpuMsgHeader_t mpu_message_header(u8 *buffer)
 {
-	MpuMsgHeader_t *msg = (MpuMsgHeader_t*)buffer;
-
-	msg->type = le16_to_cpu(msg->type);
-	msg->payloadLen = le16_to_cpu(msg->payloadLen);
+	MpuMsgHeader_t *msg_p = (MpuMsgHeader_t*)buffer;
+	MpuMsgHeader_t msg;
+	msg.type = le16_to_cpu(msg_p->type);
+	msg.payloadLen = le16_to_cpu(msg_p->payloadLen);
 	return msg;
 }
 

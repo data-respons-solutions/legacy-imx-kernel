@@ -18,7 +18,7 @@ struct lm_pmu_private {
 	struct spi_device *spi_dev;
 	struct work_struct response_work;
 	wait_queue_head_t wait;
-	bool acked;
+	volatile bool acked;
 	struct rtc_device *rtc;
 	struct miscdevice fw_dev;
 	bool fw_dev_ok;

@@ -47,7 +47,7 @@ typedef struct MpuMsgHeader
 } MpuMsgHeader_t;
 
 int mpu_create_message(MpuMsgType_t type, u8 *buffer, const u8 *payload, u16 len);
-MpuMsgHeader_t *mpu_message_header(u8 *buffer);
+MpuMsgHeader_t mpu_message_header(u8 *buffer);
 u8* mpu_get_payload(u8 *buffer);
 
 
