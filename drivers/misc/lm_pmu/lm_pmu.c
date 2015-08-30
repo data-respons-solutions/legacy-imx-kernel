@@ -37,6 +37,32 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 /* Singleton for power function */
 static struct lm_pmu_private *the_one_and_only;
 
+static int pmu_spi_write(struct spi_device *spi, const void* buf, int size )
+{
+	struct spi_transfer t;
+	struct spi_message	m;
+	memset(&t, 0, sizeof(t));
+	t.tx_buf = buf;
+	t.len = size;
+
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+	return spi_sync(spi, &m);
+}
+
+static int pmu_spi_read(struct spi_device *spi, void* buf, int size )
+{
+	struct spi_transfer t;
+	struct spi_message	m;
+	memset(&t, 0, sizeof(t));
+	t.rx_buf = buf;
+	t.len = size;
+
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+	return spi_sync(spi, &m);
+}
+
 void lm_pmu_set_subclass_data(struct lm_pmu_private* priv, void* _data)
 {
 	priv->subclass_data = _data;
@@ -164,7 +190,7 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 	dev_dbg(&priv->spi_dev->dev, "p=%d, txl=%d, rxl=%d\n", proto, tx_len, rx_len);
 	priv->acked = false;
 	sz = mpu_create_message(proto, priv->outgoing_buffer, tx_buffer, tx_len );
-	status = spi_write(priv->spi_dev, (const void*)priv->outgoing_buffer, sz);
+	status = pmu_spi_write(priv->spi_dev, (const void*)priv->outgoing_buffer, sz);
 	if (status < 0) {
 		dev_err(&priv->spi_dev->dev, "%s: Could not write to pmu\n", __func__);
 		goto exit_unlock;
@@ -198,7 +224,7 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 	}
 	/* Get the rest if ok */
 	if (rx_len > 0) {
-		status = spi_read(priv->spi_dev, priv->incoming_buffer+sizeof(MpuMsgHeader_t), rx_len);
+		status = pmu_spi_read(priv->spi_dev, priv->incoming_buffer+sizeof(MpuMsgHeader_t), rx_len);
 		memcpy(rx_buffer, mpu_get_payload(priv->incoming_buffer), rx_len);
 	}
 
