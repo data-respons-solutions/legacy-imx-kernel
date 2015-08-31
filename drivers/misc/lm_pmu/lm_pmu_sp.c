@@ -63,6 +63,24 @@ static int lm_pmu_get_valids(struct lm_pmu_sp *pmu)
 	return status;
 }
 
+static void lm_pmu_sp_set_charger(struct lm_pmu_sp *pmu, bool enable)
+{
+	pmu->charge_enable = enable;
+	if (enable) {
+		dev_info(&pmu->priv->spi_dev->dev, "Enabling charger\n");
+		gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 0 : 1);
+		if (pmu->charge_high_current)
+			gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 0 : 1);
+		else
+			gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
+	}
+	else {
+		dev_info(&pmu->priv->spi_dev->dev, "Disabling charger\n");
+		gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 1 : 0);
+		gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
+	}
+}
+
 static int lm_pmu_mains_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
@@ -108,12 +126,7 @@ static ssize_t lm_pmu_set_bat(struct device *dev,
 	bool enable = buf[0] == '1' ? 1 : 0;
 
 	if (strcmp(attr->attr.name, "bat_charge_en") == 0) {
-		pmu->charge_enable = enable;
-		if (enable)
-			gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 0 : 1);
-
-		else
-			gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 1 : 0);
+		lm_pmu_sp_set_charger(pmu, enable);
 		return count;
 	}
 	else if (strcmp(attr->attr.name, "bat_high_current") == 0) {
@@ -155,6 +168,7 @@ static void alert_handler(struct work_struct *ws)
 	struct lm_pmu_sp *pmu = container_of(ws, struct lm_pmu_sp, alert_work);
 	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
 	if (lm_pmu_get_valids(pmu) == 0) {
+		lm_pmu_sp_set_charger(pmu, pmu->psu_valids ? true : false);
 		power_supply_changed(pmu->ps_dcin);
 	}
 
@@ -224,10 +238,12 @@ static int lm_pmu_sp_probe(struct spi_device *spi)
 	if (!pmu->priv->pmu_ready)
 		return 0;
 
+	pmu->charge_high_current = true;
 	if (lm_pmu_get_valids(pmu) == 0 && pmu->psu_valids) {
 		gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 0 : 1);
-		pmu->charge_enable = true;
-		dev_info(&spi->dev, "Enabling charger since adapter detected\n");
+		lm_pmu_sp_set_charger(pmu, true);
+
+
 	}
 
 	pm_power_off = lm_pmu_poweroff;
