@@ -148,13 +148,11 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 	status = pmu_update_ina_values(pmu);
 	if (status < 0)
 		return status;
-	status = lm_pmu_get_valids(pmu);
-	if (status < 0)
-		return status;
 
 	switch (psp)
 	{
 	case POWER_SUPPLY_PROP_ONLINE:
+		pmu_update_ina_values(pmu);
 		val->intval = pmu->psu_valids & VALID_MASK_DCIN ? 1 : 0;
 		break;
 
@@ -507,7 +505,7 @@ static void alert_handler(struct work_struct *ws)
 	struct lm_pmu_lb *pmu = container_of(ws, struct lm_pmu_lb, alert_work);
 	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
 	power_supply_changed(pmu->ps_dcin);
-
+	lm_pmu_get_valids(pmu);
 }
 
 
@@ -623,6 +621,7 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 
 
 	lm_pmu_get_valids(pmu);
+	lm_pmu_update_bat_detect(pmu);
 	pmu->ps_dcin = devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
 	if (!pmu->ps_dcin) {
 		ret = -ENOMEM;
