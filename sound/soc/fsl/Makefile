@@ -68,6 +68,7 @@ snd-soc-imx-si476x-objs := imx-si476x.o
 snd-soc-imx-mqs-objs := imx-mqs.o
 snd-soc-imx-wm8960-objs := imx-wm8960.o
 snd-soc-imx-pcm1681-objs := imx-pcm1681.o
+snd-soc-lm-imx-wm8960-objs := lm-imx-wm8960.o
 
 obj-$(CONFIG_SND_SOC_EUKREA_TLV320) += snd-soc-eukrea-tlv320.o
 obj-$(CONFIG_SND_SOC_PHYCORE_AC97) += snd-soc-phycore-ac97.o
@@ -86,5 +87,6 @@ obj-$(CONFIG_SND_SOC_IMX_SI476X) += snd-soc-imx-si476x.o
 obj-$(CONFIG_SND_SOC_IMX_MQS) += snd-soc-imx-mqs.o
 obj-$(CONFIG_SND_SOC_IMX_WM8960) += snd-soc-imx-wm8960.o
 obj-$(CONFIG_SND_SOC_IMX_PCM1681) += snd-soc-imx-pcm1681.o
+obj-$(CONFIG_SND_SOC_LM_IMX_WM8960) += snd-soc-lm-imx-wm8960.o
 
 AFLAGS_hdmi_pcm.o := -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=softfp
