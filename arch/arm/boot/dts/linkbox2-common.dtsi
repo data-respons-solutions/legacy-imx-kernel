@@ -268,7 +268,7 @@
 	
 	sound_2ch {
 		compatible = "fsl,lm-imx-audio-wm8960";
-		model = "lm-wm8960-audio";
+		model = "wm8960-audio";
 		cpu-dai = <&ssi2>;
 		audio-codec = <&codec>;
 		audio-routing =
