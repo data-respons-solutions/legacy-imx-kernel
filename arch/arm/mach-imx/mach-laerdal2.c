@@ -185,6 +185,10 @@ static int ar8031_phy_fixup(struct phy_device *dev)
 {
 	u16 val;
 
+	/* Set RGMII IO voltage to 1.8V */
+	phy_write(dev, 0x1d, 0x1f);
+	phy_write(dev, 0x1e, 0x8);
+
 	/* disable phy AR8031 SmartEEE function. */
 	phy_write(dev, 0xd, 0x3);
 	phy_write(dev, 0xe, 0x805d);
@@ -326,6 +330,18 @@ static void __init imx6q_csi_mux_init(void)
 	}
 }
 
+static void __init imx6q_enet_clk_sel(void)
+{
+	struct regmap *gpr;
+
+	gpr = syscon_regmap_lookup_by_compatible("fsl,imx6q-iomuxc-gpr");
+	if (!IS_ERR(gpr))
+		regmap_update_bits(gpr, IOMUXC_GPR5,
+				   IMX6Q_GPR5_ENET_TX_CLK_SEL, IMX6Q_GPR5_ENET_TX_CLK_SEL);
+	else
+		pr_err("failed to find fsl,imx6q-iomux-gpr regmap\n");
+}
+
 #define OCOTP_MACn(n)	(0x00000620 + (n) * 0x10)
 static void __init lm_enet_mac_init(const char *compatible)
 {
@@ -409,6 +425,8 @@ static inline void imx6q_enet_init(void)
 	lm_enet_mac_init("fsl,imx6q-fec");
 	imx6q_enet_phy_init();
 	imx6q_1588_init();
+	if (cpu_is_imx6q() && imx_get_soc_revision() == IMX_CHIP_REVISION_2_0)
+		imx6q_enet_clk_sel();
 	imx6q_enet_plt_init();
 }
 
@@ -559,7 +577,6 @@ static void __init imx6q_init_machine(void)
 	of_platform_populate(NULL, of_default_bus_match_table,
 					imx6q_auxdata_lookup, parent);
 
-
 	imx6q_enet_init();
 	imx_anatop_init();
 	imx6q_csi_mux_init();
@@ -675,7 +692,6 @@ static void __init imx6q_init_late(void)
 	if (of_machine_is_compatible("fsl,imx6q-sabreauto")
 		|| of_machine_is_compatible("fsl,imx6dl-sabreauto"))
 		imx6q_flexcan_fixup_auto();
-
 }
 
 static void __init imx6q_map_io(void)
@@ -683,7 +699,9 @@ static void __init imx6q_map_io(void)
 	debug_ll_io_init();
 	imx_scu_map_io();
 	imx6_pm_map_io();
-	imx6_busfreq_map_io();
+#ifdef CONFIG_CPU_FREQ
+	imx_busfreq_map_io();
+#endif
 }
 
 static void __init imx6q_init_irq(void)
