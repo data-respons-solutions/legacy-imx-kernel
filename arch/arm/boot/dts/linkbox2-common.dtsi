@@ -267,8 +267,8 @@
 	};
 	
 	sound_2ch {
-		compatible = "fsl,imx-audio-wm8960";
-		model = "wm8960-audio";
+		compatible = "fsl,lm-imx-audio-wm8960";
+		model = "lm-wm8960-audio";
 		cpu-dai = <&ssi2>;
 		audio-codec = <&codec>;
 		audio-routing =
@@ -282,7 +282,7 @@
 		mux-int-port = <2>;
 		mux-ext-port = <3>;
 		hp-det-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
-		mic-det-gpios = <&gpio1 4 GPIO_ACTIVE_LOW>;
+		mic-det-gpios = <&gpio7 13 GPIO_ACTIVE_LOW>;
 	};
 
 	sound_8ch {
@@ -522,8 +522,9 @@
     codec: wm8960@1a {
 		compatible = "wlf,wm8960";
 		reg = <0x1a>;
-		clocks = <&clks 201>;
-		shared-lrclk;
+		clocks = <&clks IMX6QDL_CLK_CKO>;
+		clock-names = "mclk";
+		wlf,shared-lrclk;
        };
 
 };

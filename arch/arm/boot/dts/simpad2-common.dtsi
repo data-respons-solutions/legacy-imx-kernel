@@ -264,11 +264,6 @@
 		hp-det-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
 	};
 	
-	vibra@0 {
-		compatible = "modulated-pwm";
-		pwms = <&pwm2 0 1000000>;
-		status = "okay";
-	};
 };
 
 
@@ -479,8 +474,9 @@
     codec: wm8960@1a {
 		compatible = "wlf,wm8960";
 		reg = <0x1a>;
-		clocks = <&clks 201>;
-		shared-lrclk;
+        clocks = <&clks IMX6QDL_CLK_CKO>;
+        clock-names = "mclk";
+        wlf,shared-lrclk;
        };
        
     mma8451@1c {
@@ -830,6 +826,9 @@
 	pinctrl-0 = <&pinctrl_usbotg_lm>;
 	vbus-supply = <&reg_usb_otg_vbus>;
 	disable_over_current;
+	srp-disable;
+    hnp-disable;
+    adp-disable;
 	status = "okay";
 };
 
