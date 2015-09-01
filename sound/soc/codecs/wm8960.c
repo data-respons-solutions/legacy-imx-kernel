@@ -995,20 +995,20 @@ static int wm8960_set_dai_clkdiv(struct snd_soc_dai *codec_dai,
 
 	switch (div_id) {
 	case WM8960_SYSCLKDIV:
-		reg = snd_soc_read(codec, WM8960_CLOCK1) & 0x1f9;
-		snd_soc_write(codec, WM8960_CLOCK1, reg | div);
+		snd_soc_update_bits(codec, WM8960_CLOCK1, 0x6, div << 1);
 		break;
 	case WM8960_DACDIV:
-		reg = snd_soc_read(codec, WM8960_CLOCK1) & 0x1c7;
-		snd_soc_write(codec, WM8960_CLOCK1, reg | div);
+		snd_soc_update_bits(codec, WM8960_CLOCK1, 0x1f8, (div << 3) | (div << 6));
 		break;
 	case WM8960_OPCLKDIV:
 		reg = snd_soc_read(codec, WM8960_PLL1) & 0x03f;
 		snd_soc_write(codec, WM8960_PLL1, reg | div);
 		break;
 	case WM8960_DCLKDIV:
-		reg = snd_soc_read(codec, WM8960_CLOCK2) & 0x03f;
-		snd_soc_write(codec, WM8960_CLOCK2, reg | div);
+		reg = snd_soc_update_bits(codec, WM8960_CLOCK2, 0x1c0, div << 6);
+		break;
+	case WM8960_BCLKDIV:
+		reg = snd_soc_update_bits(codec, WM8960_CLOCK2, 0xf, div);
 		break;
 	case WM8960_TOCLKSEL:
 		reg = snd_soc_read(codec, WM8960_ADDCTL1) & 0x1fd;
