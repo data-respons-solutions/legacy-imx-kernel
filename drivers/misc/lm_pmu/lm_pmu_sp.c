@@ -188,7 +188,7 @@ static int lm_pmu_dt(struct lm_pmu_sp *pmu)
 				flag == OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
 						"charge-en")) {
 			dev_err(dev, "%s: unable to request GPIO charge-enable-gpio [%d]\n", __func__, pmu->charge_enable_gpio);
-			return EINVAL;
+			return -EINVAL;
 		}
 		pmu->charge_enable_gpio_active_low = flag == OF_GPIO_ACTIVE_LOW;
 	}
@@ -203,7 +203,7 @@ static int lm_pmu_dt(struct lm_pmu_sp *pmu)
 				flag == OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
 						"charge-en")) {
 			dev_err(dev, "%s: unable to request GPIO charge-enable-gpio [%d]\n", __func__, pmu->charge_iset_gpio);
-			return EINVAL;
+			return -EINVAL;
 		}
 		pmu->charge_iset_gpio_active_low = flag == OF_GPIO_ACTIVE_LOW;
 	}

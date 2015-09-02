@@ -215,17 +215,10 @@
 			value = <0>;
 		};
 		
-		
 		gpio-pmu02 {
             gpios = <&gpio5 17 GPIO_ACTIVE_LOW>;
             status = "okay";
             value = <0>;
-		};
-		
-		gpio-5wsd {
-		  gpios = <&gpio4 25 GPIO_ACTIVE_LOW>;
-		  status = "okay";
-		  value = <0>;
 		};
 		
 	};
@@ -291,7 +284,7 @@
 		cpu-dai = <&esai>;
 		audio-codec = <&codec_pcm1681>;
 		hfclk-freq = <8192000>;
-		amp-shutdown-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
+		
 		audio-routing = 
 			"OUT1", "VOUT1",
 			"OUT2", "VOUT2",
@@ -356,6 +349,8 @@
        manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;
        bat-detect-gpios = <&gpio4 31 GPIO_ACTIVE_LOW &gpio5 5 GPIO_ACTIVE_LOW>;
        bat-disable-gpios = <&gpio4 23 GPIO_ACTIVE_HIGH &gpio4 24 GPIO_ACTIVE_HIGH>;
+       spksd-gpio = <&gpio4 25 GPIO_ACTIVE_LOW>;
+       amp-shutdown-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;
        reg = <0>;
     };
 };

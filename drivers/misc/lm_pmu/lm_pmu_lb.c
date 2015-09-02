@@ -67,6 +67,10 @@ struct lm_pmu_lb {
 	bool bat_disabled[2];
 	bool bat_ce[2];
 	bool bat_detect[2];
+	int gpio_5w_sd;
+	bool gpio_5w_sd_active_low;
+	int gpio_spkr_sd;
+	bool gpio_spkr_sd_active_low;
 	struct notifier_block ps_dcin_nb;
 	struct work_struct alert_work;
 
@@ -258,13 +262,18 @@ static int lm_pmu_manikin_12v_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (val->intval) {
 			gpio_set_value(pmu->gpio_12v_manikin[0], pmu->gpio_12v_manikin_active_low[0] ? 0 : 1);
-			msleep(50);
+			msleep(2);
 			gpio_set_value(pmu->gpio_12v_manikin[1], pmu->gpio_12v_manikin_active_low[1] ? 0 : 1);
+			msleep(10);
+			gpio_set_value(pmu->gpio_5w_sd, pmu->gpio_5w_sd_active_low ? 1 : 0);
+			msleep(5);
+			gpio_set_value(pmu->gpio_spkr_sd, pmu->gpio_spkr_sd_active_low ? 1 : 0);
 		}
 		else  {
 			gpio_set_value(pmu->gpio_12v_manikin[1], pmu->gpio_12v_manikin_active_low[1] ? 1 : 0);
-			msleep(10);
 			gpio_set_value(pmu->gpio_12v_manikin[0], pmu->gpio_12v_manikin_active_low[0] ? 1 : 0);
+			gpio_set_value(pmu->gpio_5w_sd, pmu->gpio_5w_sd_active_low ? 0 : 1);
+			gpio_set_value(pmu->gpio_spkr_sd, pmu->gpio_spkr_sd_active_low ? 0 : 1);
 		}
 		pmu->manikin_12v_power_on = val->intval ? true : false;
 		power_supply_changed(psy);
@@ -549,7 +558,7 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 				flag == OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
 						"manikin-5v")) {
 			dev_err(dev, "%s: unable to request GPIO manikin-5v-gpio [%d]\n", __func__, pmu->gpio_5v_manikin);
-			return EINVAL;
+			return -EINVAL;
 		}
 		pmu->gpio_5v_manikin_active_low = flag == OF_GPIO_ACTIVE_LOW;
 	}
@@ -569,7 +578,7 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 		if (!gpio_is_valid(pmu->gpio_bat_det[n]) ||
 				devm_gpio_request_one(dev, pmu->gpio_bat_det[n], GPIOF_DIR_IN, bat_detect_names[n])) {
 			dev_err(dev, "%s: Unable to request bat_detect pin %d\n", __func__, pmu->gpio_bat_det[n]);
-			return EINVAL;
+			return -EINVAL;
 		}
 		pmu->gpio_bat_det_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
 	}
@@ -585,9 +594,31 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 		if (!gpio_is_valid(pmu->gpio_bat_disable[n]) ||
 				devm_gpio_request_one(dev, pmu->gpio_bat_disable[n], GPIOF_DIR_IN, bat_disable_names[n])) {
 			dev_err(dev, "%s: Unable to request bat_disable pin %d\n", __func__, pmu->gpio_bat_disable[n]);
-			return EINVAL;
+			return -EINVAL;
 		}
 		pmu->gpio_bat_disable_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
+	}
+
+	pmu->gpio_5w_sd = of_get_named_gpio_flags(np, "spksd-gpio", 0, &flag);
+	if (gpio_is_valid(pmu->gpio_5w_sd)) {
+		pmu->gpio_5w_sd_active_low = flag == OF_GPIO_ACTIVE_LOW ? 1 : 0;
+		if (devm_gpio_request_one(dev, pmu->gpio_5w_sd,
+				pmu->gpio_5w_sd_active_low ? GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH,
+						"spksd-gpio")) {
+			dev_err(dev, "Unable to request spksd-gpio %d\n", pmu->gpio_5w_sd);
+			return -EINVAL;
+		}
+	}
+
+	pmu->gpio_spkr_sd = of_get_named_gpio_flags(np, "amp-shutdown-gpio", 0, &flag);
+	if (gpio_is_valid(pmu->gpio_spkr_sd)) {
+		pmu->gpio_spkr_sd_active_low = flag == OF_GPIO_ACTIVE_LOW ? 1 : 0;
+		if (devm_gpio_request_one(dev, pmu->gpio_spkr_sd,
+				pmu->gpio_spkr_sd_active_low ? GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH,
+						"amp-shutdown-gpio")) {
+			dev_err(dev, "Unable to request amp-shutdown-gpio %d\n", pmu->gpio_spkr_sd);
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
