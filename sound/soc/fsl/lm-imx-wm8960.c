@@ -24,7 +24,6 @@
  * http://www.opensource.org/licenses/gpl-license.html
  * http://www.gnu.org/copyleft/gpl.html
  */
-#define DEBUG
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/i2c.h>
@@ -322,9 +321,6 @@ static int imx_hifi_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct imx_priv *priv = &card_priv;
-	struct device *dev = &priv->pdev->dev;
 	struct snd_soc_card *card = codec_dai->codec->card;
 	struct imx_wm8960_data *data = snd_soc_card_get_drvdata(card);
 	int ret = clk_prepare_enable(data->codec_clk);
@@ -337,9 +333,6 @@ static void imx_hifi_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct imx_priv *priv = &card_priv;
-	struct device *dev = &priv->pdev->dev;
 	struct snd_soc_card *card = codec_dai->codec->card;
 	struct imx_wm8960_data *data = snd_soc_card_get_drvdata(card);
 	clk_disable_unprepare(data->codec_clk);
