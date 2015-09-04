@@ -335,22 +335,13 @@
 	pinctrl-0 = <&pinctrl_ecspi2>;
 	status = "okay";
 	
-	pmu: pmu@0 {
+	pmufw: pmufw@0 {
 	   #address-cells = <1>;
        #size-cells = <1>;
-       compatible = "datarespons,lm-pmu-lb";
-       irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
-       msg-complete-gpio = <&gpio5 14 GPIO_ACTIVE_LOW>;
+       compatible = "datarespons,lm-pmu-fw";
        boot0-gpio = <&gpio5 15 GPIO_ACTIVE_HIGH>;
        reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
-       alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
        spi-max-frequency = <4000000>;
-       manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
-       manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;
-       bat-detect-gpios = <&gpio4 31 GPIO_ACTIVE_LOW &gpio5 5 GPIO_ACTIVE_LOW>;
-       bat-disable-gpios = <&gpio4 23 GPIO_ACTIVE_HIGH &gpio4 24 GPIO_ACTIVE_HIGH>;
-       spksd-gpio = <&gpio4 25 GPIO_ACTIVE_LOW>;
-       amp-shutdown-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;
        reg = <0>;
     };
 };
@@ -573,6 +564,21 @@
         compatible = "ti,pcm1681";
         clocks = <&si5351 0>;
         reg = <0x4c>;
+    };
+    
+    pmu: pmu@40 {
+       reg = <0x40>;
+       compatible = "datarespons,lm-pmu-lb";
+       irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+       msg-complete-gpio = <&gpio5 14 GPIO_ACTIVE_LOW>;
+       alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
+       spi-max-frequency = <4000000>;
+       manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
+       manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;
+       bat-detect-gpios = <&gpio4 31 GPIO_ACTIVE_LOW &gpio5 5 GPIO_ACTIVE_LOW>;
+       bat-disable-gpios = <&gpio4 23 GPIO_ACTIVE_HIGH &gpio4 24 GPIO_ACTIVE_HIGH>;
+       spksd-gpio = <&gpio4 25 GPIO_ACTIVE_LOW>;
+       amp-shutdown-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;
     };
 
 

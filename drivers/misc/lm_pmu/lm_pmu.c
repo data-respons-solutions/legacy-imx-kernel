@@ -3,7 +3,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/sched.h>
-#include <linux/spi/spi.h>
+#include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/of.h>
@@ -12,13 +12,12 @@
 #include <linux/rtc.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
-#include <linux/miscdevice.h>
+
 #include <linux/power_supply.h>
 
 #include "muxprotocol.h"
 #include "rtc_proto.h"
 #include "ina219_proto.h"
-#include "stm32fwu.h"
 
 #include "lm_pmu.h"
 
@@ -37,32 +36,6 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 /* Singleton for power function */
 static struct lm_pmu_private *the_one_and_only;
 
-static int pmu_spi_write(struct spi_device *spi, const void* buf, int size )
-{
-	struct spi_transfer t;
-	struct spi_message	m;
-	memset(&t, 0, sizeof(t));
-	t.tx_buf = buf;
-	t.len = size;
-
-	spi_message_init(&m);
-	spi_message_add_tail(&t, &m);
-	return spi_sync(spi, &m);
-}
-
-static int pmu_spi_read(struct spi_device *spi, void* buf, int size )
-{
-	struct spi_transfer t;
-	struct spi_message	m;
-	memset(&t, 0, sizeof(t));
-	t.rx_buf = buf;
-	t.len = size;
-
-	spi_message_init(&m);
-	spi_message_add_tail(&t, &m);
-	return spi_sync(spi, &m);
-}
-
 void lm_pmu_set_subclass_data(struct lm_pmu_private* priv, void* _data)
 {
 	priv->subclass_data = _data;
@@ -73,95 +46,16 @@ void *lm_pmu_get_subclass_data(struct lm_pmu_private *priv)
 	return priv->subclass_data;
 }
 
-static int lm_pmu_reset(struct lm_pmu_private *priv)
+int lm_pmu_reset_message(void)
 {
-	int status = 0;
-#ifdef RESET_BY_MESSAGE
-	status = lm_pmu_exchange(priv, msg_reset, 0, 0, 0, 0);
-#else
-	gpio_set_value(priv->gpio_reset, 0);
-	msleep_interruptible(300);
-	gpio_set_value(priv->gpio_reset, 1);
-	msleep_interruptible(10);
-#endif
-	return status;
+	if (the_one_and_only)
+		return lm_pmu_exchange(the_one_and_only, msg_reset, 0, 0, 0, 0);
+	else
+		return -EINVAL;
 }
 
-static int lm_pmu_open(struct inode *inode, struct file *file)
-{
-	return 0;
-}
+EXPORT_SYMBOL(lm_pmu_reset_message);
 
-static ssize_t lm_pmu_update(struct file *file, const char __user *data,
-						size_t len, loff_t *ppos)
-{
-	int retries=2;
-	int res=0;
-	int fw_version;
-	struct miscdevice *msdev = file->private_data;
-	struct lm_pmu_private *priv = dev_get_drvdata(msdev->parent);
-	char *buffer = kmalloc(len, GFP_KERNEL);
-	if (buffer == 0) {
-		dev_err(msdev->parent, "%s: failed to kmalloc buffer of size %d\n", __func__, len);
-		return -ENOMEM;
-	}
-	res = copy_from_user(buffer, data, len);
-	if ( res  ) {
-		dev_err(msdev->parent, "%s: failed to copy buffer of size %d\n", __func__, len);
-		kfree(buffer);
-		return -EIO;
-	}
-	priv->fw = stm32fwu_init(msdev->parent, STM32_SPI, buffer, len);
-	if (priv->fw == 0) {
-		dev_err(msdev->parent, "%s: failed to allocate fw structure\n", __func__);
-		kfree(buffer);
-		return -ENOMEM;
-	}
-
-	gpio_direction_output(priv->gpio_boot0, 1);
-	res = lm_pmu_reset(priv);
-	if (res) {
-		dev_err(msdev->parent, "%s: failed to reset PMU\n", __func__);
-		goto restore;
-	}
-	mutex_lock(&priv->serial_lock);
-	msleep(100);
-
-	while (retries) {
-		if ( stm32fwu_send_sync(priv->fw) >= 0 )
-			break;
-		retries--;
-		if (retries == 0) {
-			dev_err(msdev->parent, "%s: failed get %d\n", __func__, res);
-			goto restore_unlock;
-		}
-		msleep(1);
-	}
-	fw_version = stm32fwu_get_version(priv->fw);
-	if (fw_version < 0) {
-		dev_err(msdev->parent, "%s: failed to get fw version\n", __func__);
-
-	}
-	else {
-		dev_info(msdev->parent, "%s: fw version %d\n", __func__, fw_version);
-	}
-restore_unlock:
-	mutex_unlock(&priv->serial_lock);
-restore:
-	gpio_set_value(priv->gpio_boot0, 0);
-	gpio_direction_input(priv->gpio_boot0);
-
-	stm32fwu_destroy(priv->fw);
-	kfree(buffer);
-	return len;
-}
-
-static const struct file_operations lm_pmu_fops = {
-	.owner = THIS_MODULE,
-	.llseek = no_llseek,
-	.write = lm_pmu_update,
-	.open = lm_pmu_open,
-};
 
 static void lm_pmu_show_msg(struct lm_pmu_private *priv, const char *hdr, u8 *buf, int sz)
 {
@@ -173,7 +67,7 @@ static void lm_pmu_show_msg(struct lm_pmu_private *priv, const char *hdr, u8 *bu
 		max = sz;
 	for (n=0; n < max; n++)
 		p += sprintf(p, "0x%02x,", buf[n]);
-	dev_info(&priv->spi_dev->dev, "%s %s\n", hdr, msg);
+	dev_info(&priv->i2c_dev->dev, "%s %s\n", hdr, msg);
 }
 
 int lm_pmu_exchange(struct lm_pmu_private *priv,
@@ -187,12 +81,12 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 	int sz;
 	MpuMsgHeader_t msg_hdr;
 	mutex_lock(&priv->serial_lock);
-	dev_dbg(&priv->spi_dev->dev, "p=%d, txl=%d, rxl=%d\n", proto, tx_len, rx_len);
+	dev_dbg(&priv->i2c_dev->dev, "p=%d, txl=%d, rxl=%d\n", proto, tx_len, rx_len);
 	priv->acked = false;
 	sz = mpu_create_message(proto, priv->outgoing_buffer, tx_buffer, tx_len );
-	status = pmu_spi_write(priv->spi_dev, (const void*)priv->outgoing_buffer, sz);
+	status = i2c_master_send(priv->i2c_dev, priv->outgoing_buffer, sz );
 	if (status < 0) {
-		dev_err(&priv->spi_dev->dev, "%s: Could not write to pmu\n", __func__);
+		dev_err(&priv->i2c_dev->dev, "%s: Could not write to pmu, err = %d\n", __func__, status);
 		goto exit_unlock;
 	}
 	usleep_range(200, 300);
@@ -203,28 +97,28 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 	status = wait_event_interruptible_timeout(priv->wait, priv->acked, msecs_to_jiffies(1000) );
 
 	if (status <= 0) {
-		dev_err(&priv->spi_dev->dev, "Timed out [%d] waiting for pmu message %d\n", status, proto);
+		dev_err(&priv->i2c_dev->dev, "Timed out [%d] waiting for pmu message %d\n", status, proto);
 		lm_pmu_show_msg(priv, "Send:", priv->outgoing_buffer, sz);
 		status = -ETIMEDOUT;
 		goto exit_unlock;
 	}
 
-	status = spi_read(priv->spi_dev, priv->incoming_buffer, sizeof(MpuMsgHeader_t));
+	status = i2c_master_recv(priv->i2c_dev, priv->incoming_buffer, PROTO_BUF_SIZE );
 
 	if (status < 0) {
-		dev_err(&priv->spi_dev->dev, "%s: SPI header read error\n", __func__);
+		dev_err(&priv->i2c_dev->dev, "%s: SPI header read error\n", __func__);
 		goto exit_unlock;
 	}
 	msg_hdr = mpu_message_header(priv->incoming_buffer);
-	if (msg_hdr.type == msg_nack) {
+	if (msg_hdr.type == msg_nack || status < (rx_len + sizeof(MpuMsgHeader_t))) {
 		lm_pmu_show_msg(priv, "Recv:", priv->incoming_buffer, sizeof(MpuMsgHeader_t));
-		dev_warn(&priv->spi_dev->dev, "%s: Transaction error from PMU on message %d\n", __func__, proto);
+		dev_warn(&priv->i2c_dev->dev, "%s: Transaction error from PMU on message %d\n", __func__, proto);
 		status = -EINVAL;
 		goto exit_unlock;
 	}
 	/* Get the rest if ok */
 	if (rx_len > 0) {
-		status = pmu_spi_read(priv->spi_dev, priv->incoming_buffer+sizeof(MpuMsgHeader_t), rx_len);
+		//status = pmu_spi_read(priv->i2c_dev, priv->incoming_buffer+sizeof(MpuMsgHeader_t), rx_len);
 		memcpy(rx_buffer, mpu_get_payload(priv->incoming_buffer), rx_len);
 	}
 
@@ -241,7 +135,7 @@ irqreturn_t lm_pmu_spi_irq_handler(int irq, void *dev_id)
 		pr_err("%s: IRQ BUG\n", __func__);
 	priv->acked = true;
 	wake_up_interruptible(&priv->wait);
-	dev_dbg(&priv->spi_dev->dev, "SPI IRQ\n");
+	dev_dbg(&priv->i2c_dev->dev, "SPI IRQ\n");
 	return IRQ_HANDLED;
 
 }
@@ -252,7 +146,7 @@ irqreturn_t lm_pmu_alert_irq_handler(int irq, void *dev_id)
 	if (priv != the_one_and_only)
 		pr_err("%s: IRQ BUG\n", __func__);
 	else
-		dev_dbg(&priv->spi_dev->dev, "ALERT\n");
+		dev_dbg(&priv->i2c_dev->dev, "ALERT\n");
 	if (priv->alert_cb)
 		return (*priv->alert_cb)(priv->subclass_data);
 
@@ -261,8 +155,8 @@ irqreturn_t lm_pmu_alert_irq_handler(int irq, void *dev_id)
 
 static int lm_pmu_get_datetime(struct device *dev, struct rtc_time *tm)
 {
-	struct spi_device *spi = to_spi_device(dev);
-	struct lm_pmu_private *priv = spi_get_drvdata(spi);
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm_pmu_private *priv = i2c_get_clientdata(client);
 	RtcMsg_t rtc_msg;
 	int tx_len, status;
 	u8 tx_buffer[sizeof(RtcMsgHeader_t)];
@@ -287,8 +181,8 @@ static int lm_pmu_get_datetime(struct device *dev, struct rtc_time *tm)
 
 static int lm_pmu_set_datetime(struct device *dev, struct rtc_time *tm)
 {
-	struct spi_device *spi = to_spi_device(dev);
-	struct lm_pmu_private *priv = spi_get_drvdata(spi);
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm_pmu_private *priv = i2c_get_clientdata(client);
 	RtcMsg_t rtc_msg;
 	int tx_len, status;
 	u8 rx_buffer[sizeof(RtcMsgHeader_t)];
@@ -319,10 +213,10 @@ static int lm_pmu_get_version(struct lm_pmu_private *priv)
 	u8 buffer[sizeof(MpuVersionHeader_t)];
 	status = lm_pmu_exchange(priv, msg_version, 0, 0, buffer, sizeof(buffer));
 	if (status < 0)
-		dev_err(&priv->spi_dev->dev, "%s: failed\n", __func__);
+		dev_err(&priv->i2c_dev->dev, "%s: failed\n", __func__);
 	else {
 		priv->version = *mpu_get_version_header(buffer);
-		dev_info(&priv->spi_dev->dev, "Version %d.%d [%s]\n",
+		dev_info(&priv->i2c_dev->dev, "Version %d.%d [%s]\n",
 				priv->version.ver_major, priv->version.ver_minor,
 				priv->version.git_info);
 	}
@@ -335,10 +229,10 @@ static int lm_pmu_get_init(struct lm_pmu_private *priv)
 	u8 buffer[sizeof(InitMessage_t)];
 	status = lm_pmu_exchange(priv, msg_init, 0, 0, buffer, sizeof(buffer));
 	if (status < 0)
-		dev_err(&priv->spi_dev->dev, "%s: failed\n", __func__);
+		dev_err(&priv->i2c_dev->dev, "%s: failed\n", __func__);
 	else {
 		priv->init_status = init_get_message(buffer);
-		dev_info(&priv->spi_dev->dev, "Init status is 0x%x\n", priv->init_status.event_mask);
+		dev_info(&priv->i2c_dev->dev, "Init status is 0x%x\n", priv->init_status.event_mask);
 	}
 	return status;
 }
@@ -351,7 +245,7 @@ int lm_pmu_set_charge(struct lm_pmu_private *priv, ChargeMessageType_t t, u16 ma
 	int n = charge_create_message(t, tx_buffer, mask);
 	status = lm_pmu_exchange(priv, msg_charge, tx_buffer, n, 0, 0);
 	if (status < 0)
-		dev_err(&priv->spi_dev->dev, "%s: failed\n", __func__);
+		dev_err(&priv->i2c_dev->dev, "%s: failed\n", __func__);
 	return status;
 }
 
@@ -359,9 +253,9 @@ void lm_pmu_poweroff(void)
 {
 	int status = lm_pmu_exchange(the_one_and_only, msg_poweroff, 0, 0, 0, 0);
 	if (status < 0)
-		dev_err(&the_one_and_only->spi_dev->dev, "%s: failed\n", __func__);
+		dev_err(&the_one_and_only->i2c_dev->dev, "%s: failed\n", __func__);
 	else
-		dev_info(&the_one_and_only->spi_dev->dev, "%s: OK\n", __func__);
+		dev_info(&the_one_and_only->i2c_dev->dev, "%s: OK\n", __func__);
 }
 
 
@@ -418,7 +312,7 @@ static const struct attribute_group version_sysfs_attr_group = {
 
 static int lm_pmu_from_dt(struct lm_pmu_private *priv)
 {
-	struct device *dev = &priv->spi_dev->dev;
+	struct device *dev = &priv->i2c_dev->dev;
 	struct device_node *np = dev->of_node;
 
 	if (!np)
@@ -431,27 +325,6 @@ static int lm_pmu_from_dt(struct lm_pmu_private *priv)
 		return -EINVAL;
 	}
 
-	priv->gpio_boot0 = of_get_named_gpio(np, "boot0-gpio", 0);
-	if (gpio_is_valid(priv->gpio_boot0)) {
-		if (devm_gpio_request_one(dev, priv->gpio_boot0, GPIOF_IN, "pmu-boot0")) {
-			dev_warn(dev, "%s: unable to request GPIO pmu-boot0 [%d]\n", __func__, priv->gpio_boot0);
-			priv->gpio_boot0 = -1;
-		}
-	}
-	else {
-		dev_warn(dev, "%s: no GPIO for BOOT0 pin to PMU\n", __func__);
-	}
-
-	priv->gpio_reset = of_get_named_gpio(np, "reset-gpio", 0);
-	if (gpio_is_valid(priv->gpio_reset)) {
-		if (devm_gpio_request_one(dev, priv->gpio_reset, GPIOF_OUT_INIT_HIGH | GPIOF_OPEN_DRAIN, "pmu-reset")) {
-			dev_warn(dev, "%s: unable to request GPIO reset-gpio [%d]\n", __func__, priv->gpio_reset);
-			priv->gpio_reset = -1;
-		}
-	}
-	else {
-		dev_warn(dev, "%s: no GPIO for RESET pin to PMU\n", __func__);
-	}
 
 	priv->gpio_msg_complete = of_get_named_gpio(np, "msg-complete-gpio", 0);
 	if (gpio_is_valid(priv->gpio_msg_complete)) {
@@ -474,63 +347,53 @@ static int lm_pmu_from_dt(struct lm_pmu_private *priv)
 	return 0;
 }
 
-struct lm_pmu_private *lm_pmu_init(struct spi_device *spi)
+struct lm_pmu_private *lm_pmu_init(struct i2c_client *client)
 {
 	struct lm_pmu_private *priv;
 	int ret=0;
 	int trials=3;
 
-	priv = devm_kzalloc(&spi->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return NULL;
 
 	the_one_and_only = priv;
-	priv->spi_dev = spi;
+	priv->i2c_dev = client;
 
-	dev_info(&spi->dev, "Getting platform data from OF\n");
+	dev_info(&client->dev, "Getting platform data from OF\n");
 	ret = lm_pmu_from_dt(priv);
 	if (ret < 0) {
-		dev_err(&spi->dev, "%s: Failed to obtain platform data\n", __func__);
+		dev_err(&client->dev, "%s: Failed to obtain platform data\n", __func__);
 		return NULL;
 	}
 
 	mutex_init(&priv->serial_lock);
 	/* INIT_WORK(&priv->response_work, lm_pmu_response); */
 	init_waitqueue_head(&priv->wait);
-	spi_set_drvdata(spi, priv);
+	i2c_set_clientdata(client, priv);
 
-	priv->fw_dev.minor = 250;
-	priv->fw_dev.name = "lm_pmu_fwupdate";
-	priv->fw_dev.fops = &lm_pmu_fops;
-	priv->fw_dev.parent = &spi->dev;
+
 
 	priv->gpio_irq_nr = gpio_to_irq(priv->gpio_irq);
-	ret = devm_request_irq(&spi->dev, priv->gpio_irq_nr,
+	ret = devm_request_irq(&client->dev, priv->gpio_irq_nr,
 			lm_pmu_spi_irq_handler, IRQF_TRIGGER_FALLING,
 			"lm_pmu", priv);
 	if (ret < 0) {
-		dev_err(&spi->dev, "%s: not able to get irq for gpio %d, err %d\n", __func__, priv->gpio_irq, ret);
+		dev_err(&client->dev, "%s: not able to get irq for gpio %d, err %d\n", __func__, priv->gpio_irq, ret);
 		return NULL;
 	}
 
 	if (gpio_is_valid(priv->gpio_alert)) {
 		priv->gpio_alert_irq_nr = gpio_to_irq(priv->gpio_alert);
-		ret = devm_request_irq(&spi->dev, priv->gpio_alert_irq_nr,
+		ret = devm_request_irq(&client->dev, priv->gpio_alert_irq_nr,
 				lm_pmu_alert_irq_handler, IRQF_TRIGGER_FALLING,
 				"lm_pmu_alert", priv);
 		if (ret < 0) {
-			dev_err(&spi->dev, "%s: not able to get irq for gpio %d, err %d\n", __func__, priv->gpio_alert, ret);
+			dev_err(&client->dev, "%s: not able to get irq for gpio %d, err %d\n", __func__, priv->gpio_alert, ret);
 			return NULL;
 		}
 	}
-	ret = misc_register(&priv->fw_dev);
-	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to register firmware device\n");
-		priv->fw_dev_ok = false;
-		goto cleanup;
-	}
 
-	priv->fw_dev_ok = true;
 	priv->pmu_ready = false;
 
 	/* Send a dummy interrupt to sync with PMU */
@@ -547,11 +410,11 @@ struct lm_pmu_private *lm_pmu_init(struct spi_device *spi)
 	if (ret == 0) {
 		priv->pmu_ready = true;
 		lm_pmu_get_init(priv);
-		ret = sysfs_create_group(&priv->fw_dev.this_device->kobj, &version_sysfs_attr_group);
+		ret = sysfs_create_group(&priv->i2c_dev->dev.kobj, &version_sysfs_attr_group);
 		if (ret < 0) {
-			dev_err(&spi->dev, "Failed to register firmware sysfs\n");
+			dev_err(&client->dev, "Failed to register firmware sysfs\n");
 		}
-		priv->rtc = devm_rtc_device_register(&spi->dev, "lm_pmu", &lm_pmu_rtc_ops, THIS_MODULE);
+		priv->rtc = devm_rtc_device_register(&client->dev, "lm_pmu", &lm_pmu_rtc_ops, THIS_MODULE);
 		if (IS_ERR(priv->rtc)) {
 			ret = PTR_ERR(priv->rtc);
 			goto cleanup;
@@ -568,10 +431,6 @@ int lm_pmu_deinit(struct lm_pmu_private *priv)
 {
 	disable_irq(priv->gpio_irq_nr);
 	if (priv->pmu_ready)
-		sysfs_remove_group(&priv->fw_dev.this_device->kobj, &version_sysfs_attr_group);
-	if (priv->fw_dev_ok) {
-		misc_deregister(&priv->fw_dev);
-	}
-	priv->fw_dev_ok = false;
+		sysfs_remove_group(&priv->i2c_dev->dev.kobj, &version_sysfs_attr_group);
 	return 0;
 }

@@ -15,17 +15,13 @@ struct lm_pmu_private {
 	u8 outgoing_buffer[PROTO_BUF_SIZE];
 	u8 incoming_buffer[PROTO_BUF_SIZE];
 	struct mutex	serial_lock;
-	struct spi_device *spi_dev;
+
 	struct work_struct response_work;
 	wait_queue_head_t wait;
 	volatile bool acked;
 	struct rtc_device *rtc;
-	struct miscdevice fw_dev;
-	bool fw_dev_ok;
-	struct stm32fwu_fw *fw;
+	struct i2c_client *i2c_dev;
 	InitMessage_t init_status;	/* Bit vector of InitEventType_t */
-	int gpio_boot0;
-	int gpio_reset;
 	int gpio_msg_complete;
 	int gpio_irq;
 	int gpio_irq_nr;
@@ -37,12 +33,11 @@ struct lm_pmu_private {
 	irqreturn_t (*alert_cb)(void*);
 };
 
-
 void lm_pmu_set_subclass_data(struct lm_pmu_private* priv, void* _data);
 
 void *lm_pmu_get_subclass_data(struct lm_pmu_private *priv);
 
-struct lm_pmu_private *lm_pmu_init(struct spi_device *spi);
+struct lm_pmu_private *lm_pmu_init(struct i2c_client *client);
 
 int lm_pmu_exchange(struct lm_pmu_private *priv,
 		MpuMsgType_t proto,

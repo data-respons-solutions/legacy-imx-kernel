@@ -1,5 +1,5 @@
 /* i2c.h */
-int i2c_init(void);
+int ina_i2c_init(void);
 
 /* High level I2C actions */
 int i2c_writereg(unsigned char theSlave, unsigned char theReg, unsigned char theValue);

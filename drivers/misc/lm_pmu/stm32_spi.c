@@ -14,9 +14,10 @@
  */
 
 #include <linux/module.h>
-#include "stm32fwu.h"
 #include <linux/spi/spi.h>
 #include <linux/delay.h>
+#include <linux/device.h>
+#include "stm32fwu.h"
 #include "stm32_core.h"
 
 static int stm32fwu_spi_write(struct stm32fwu_fw *fw, const u8 *buf, int len)

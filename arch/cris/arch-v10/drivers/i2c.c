@@ -620,7 +620,7 @@ static const struct file_operations i2c_fops = {
 };
 
 int __init
-i2c_init(void)
+ina_i2c_init(void)
 {
 	static int res = 0;
 	static int first = 1;
@@ -677,7 +677,7 @@ i2c_register(void)
 {
 	int res;
 
-	res = i2c_init();
+	res = ina_i2c_init();
 	if (res < 0)
 		return res;
   	res = register_chrdev(I2C_MAJOR, i2c_name, &i2c_fops);

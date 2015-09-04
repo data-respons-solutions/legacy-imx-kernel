@@ -19,7 +19,6 @@
 #include <linux/device.h>
 #include "stm32fwu.h"
 #include "stm32_core.h"
-#include "stm32_spi.c"
 
 static inline int stm32fwu_wait_for_ack(struct stm32fwu_fw *fw, int retries)
 {

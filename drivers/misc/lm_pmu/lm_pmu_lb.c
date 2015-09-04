@@ -5,7 +5,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/sched.h>
-#include <linux/spi/spi.h>
+#include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/of.h>
@@ -23,17 +23,17 @@
 #include "stm32fwu.h"
 #include "lm_pmu.h"
 
-const struct spi_device_id lm_pmu_lb_ids[] = {
+const struct i2c_device_id lm_pmu_lb_ids[] = {
 	{ "lm_pmu_lb", 0 },
 	{},
 };
-MODULE_DEVICE_TABLE(spi, lm_pmu_lb_ids);
+MODULE_DEVICE_TABLE(i2c, lm_pmu_lb_ids);
 
 static struct of_device_id lm_pmu_lb_dt_ids[] = {
 	{ .compatible = "datarespons,lm-pmu-lb",  .data = 0, },
 	{}
 };
-MODULE_DEVICE_TABLE(of, lm_pmu_lb_dt_ids);
+MODULE_DEVICE_TABLE(of, lm_pmu_sp_dt_ids);
 
 #define VALID_MASK_DCIN 0x1
 #define VALID_MASK_BAT1 0x2
@@ -102,7 +102,7 @@ static int pmu_update_ina_values(struct lm_pmu_lb *pmu)
 			memcpy(&pmu->ina_values, payload, sizeof(pmu->ina_values));
 		}
 		else
-			dev_err(&pmu->priv->spi_dev->dev, "%s: Failed updating ina values\n", __func__);
+			dev_err(&pmu->priv->i2c_dev->dev, "%s: Failed updating ina values\n", __func__);
 
 	}
 
@@ -116,7 +116,7 @@ static int lm_pmu_get_valids(struct lm_pmu_lb *pmu)
 	u8 rx_buffer[4];
 	status = lm_pmu_exchange(pmu->priv, msg_valid, 0, 0, rx_buffer, sizeof(rx_buffer));
 	if (status < 0)
-		dev_err(&pmu->priv->spi_dev->dev, "%s: failed\n", __func__);
+		dev_err(&pmu->priv->i2c_dev->dev, "%s: failed\n", __func__);
 	else {
 		pmu->psu_valids = le32_to_cpu(*(u32*)rx_buffer);
 	}
@@ -504,7 +504,7 @@ static const struct attribute_group bat_sysfs_attr_group = {
 static irqreturn_t alert_irq(void *_ptr)
 {
 	struct lm_pmu_lb *pmu = _ptr;
-	//dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	//dev_dbg(&pmu->priv->i2c_dev->dev, "%s\n", __func__);
 	schedule_work(&pmu->alert_work);
 	return IRQ_HANDLED;
 }
@@ -512,7 +512,7 @@ static irqreturn_t alert_irq(void *_ptr)
 static void alert_handler(struct work_struct *ws)
 {
 	struct lm_pmu_lb *pmu = container_of(ws, struct lm_pmu_lb, alert_work);
-	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	dev_dbg(&pmu->priv->i2c_dev->dev, "%s\n", __func__);
 	power_supply_changed(pmu->ps_dcin);
 	lm_pmu_get_valids(pmu);
 }
@@ -524,7 +524,7 @@ static void alert_handler(struct work_struct *ws)
 
 static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 {
-	struct device *dev = &pmu->priv->spi_dev->dev;
+	struct device *dev = &pmu->priv->i2c_dev->dev;
 	struct device_node *np = dev->of_node;
 	int n, num_gpio;
 	enum of_gpio_flags flag;
@@ -624,23 +624,23 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 }
 
 
-static int lm_pmu_lb_probe(struct spi_device *spi)
+static int lm_pmu_lb_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct lm_pmu_lb *pmu;
 	int ret=0;
 
-	pmu = devm_kzalloc(&spi->dev, sizeof(*pmu), GFP_KERNEL);
+	pmu = devm_kzalloc(&client->dev, sizeof(*pmu), GFP_KERNEL);
 	if (!pmu)
 		return -ENOMEM;
 
-	pmu->priv = lm_pmu_init(spi);
+	pmu->priv = lm_pmu_init(client);
 	if (!pmu->priv)
 		return -EINVAL;
 
 	lm_pmu_set_subclass_data(pmu->priv, pmu);
 	ret = lm_pmu_dt(pmu);
 	if (ret < 0) {
-		dev_err(&spi->dev, "%s: Failed to obtain platform data\n", __func__);
+		dev_err(&client->dev, "%s: Failed to obtain platform data\n", __func__);
 		goto cleanup;
 	}
 
@@ -653,7 +653,7 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 
 	lm_pmu_get_valids(pmu);
 	lm_pmu_update_bat_detect(pmu);
-	pmu->ps_dcin = devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
+	pmu->ps_dcin = devm_kzalloc(&client->dev, sizeof(struct power_supply), GFP_KERNEL);
 	if (!pmu->ps_dcin) {
 		ret = -ENOMEM;
 		goto cleanup;
@@ -664,9 +664,9 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 	pmu->ps_dcin->num_properties = ARRAY_SIZE(dcin_props_lb);
 	pmu->ps_dcin->properties = dcin_props_lb;
 
-	ret = power_supply_register(&spi->dev, pmu->ps_dcin);
+	ret = power_supply_register(&client->dev, pmu->ps_dcin);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Unable to register MAINS PS\n");
+		dev_err(&client->dev, "Unable to register MAINS PS\n");
 	}
 	else {
 		pmu->ps_dcin_nb.notifier_call = lm_pmu_notifier_call;
@@ -675,8 +675,8 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 	}
 
 
-	pmu->ps_manikin[0]= devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
-	pmu->ps_manikin[1]= devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
+	pmu->ps_manikin[0]= devm_kzalloc(&client->dev, sizeof(struct power_supply), GFP_KERNEL);
+	pmu->ps_manikin[1]= devm_kzalloc(&client->dev, sizeof(struct power_supply), GFP_KERNEL);
 	if (pmu->ps_manikin[0] == 0 || pmu->ps_manikin[1] == 0) {
 		ret = -ENOMEM;
 		goto cleanup;
@@ -689,9 +689,9 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 	pmu->ps_manikin[0]->properties = manikin_12v_props;
 	pmu->ps_manikin[0]->property_is_writeable = lm_pmu_manikin_prop_is_writable;
 
-	ret = power_supply_register(&spi->dev, pmu->ps_manikin[0]);
+	ret = power_supply_register(&client->dev, pmu->ps_manikin[0]);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Unable to register MANIKIN 12V PS\n");
+		dev_err(&client->dev, "Unable to register MANIKIN 12V PS\n");
 	}
 
 	pmu->ps_manikin[1]->name = "MANIKIN_5V";
@@ -703,9 +703,9 @@ static int lm_pmu_lb_probe(struct spi_device *spi)
 	if (gpio_is_valid(pmu->gpio_5v_manikin))
 		pmu->ps_manikin[1]->property_is_writeable = lm_pmu_manikin_prop_is_writable;
 
-	ret = power_supply_register(&spi->dev, pmu->ps_manikin[1]);
+	ret = power_supply_register(&client->dev, pmu->ps_manikin[1]);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Unable to register MANIKIN 5V PS\n");
+		dev_err(&client->dev, "Unable to register MANIKIN 5V PS\n");
 	}
 
 	INIT_WORK(&pmu->alert_work, alert_handler);
@@ -717,9 +717,9 @@ cleanup:
 	return ret;
 }
 
-static int lm_pmu_lb_remove(struct spi_device *spi)
+static int lm_pmu_lb_remove(struct i2c_client *client)
 {
-	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
+	struct lm_pmu_private *priv = i2c_get_clientdata(client);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
 	if (priv->pmu_ready) {
 		sysfs_remove_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
@@ -728,9 +728,9 @@ static int lm_pmu_lb_remove(struct spi_device *spi)
 	return 0;
 }
 
-static void lm_pmu_lb_shutdown(struct spi_device *spi)
+static void lm_pmu_lb_shutdown(struct i2c_client *client)
 {
-	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
+	struct lm_pmu_private *priv = i2c_get_clientdata(client);
 	struct lm_pmu_lb *pmu = lm_pmu_get_subclass_data(priv);
 	gpio_set_value(pmu->gpio_bat_disable[0], pmu->gpio_bat_disable_active_low[0] ? 1 : 0);
 	gpio_set_value(pmu->gpio_bat_disable[1], pmu->gpio_bat_disable_active_low[1] ? 1 : 0);
@@ -741,21 +741,19 @@ static void lm_pmu_lb_shutdown(struct spi_device *spi)
 	}
 }
 
-
-
-static struct spi_driver lm_pmu_lb_driver = {
+static struct i2c_driver lm_pmu_lb_driver = {
 	.driver = {
-		.name	= "lm_pmu_lb",
-		.owner	= THIS_MODULE,
+		.name = "lm_pmu_lb",
+		.owner = THIS_MODULE,
 		.of_match_table = lm_pmu_lb_dt_ids,
 	},
-	.probe	= lm_pmu_lb_probe,
-	.remove	= lm_pmu_lb_remove,
+	.probe = lm_pmu_lb_probe,
+	.remove = lm_pmu_lb_remove,
 	.shutdown = lm_pmu_lb_shutdown,
 	.id_table = lm_pmu_lb_ids,
 };
 
-module_spi_driver(lm_pmu_lb_driver);
+module_i2c_driver(lm_pmu_lb_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Hans Christian Lonstad <hcl@datarespons.no>");

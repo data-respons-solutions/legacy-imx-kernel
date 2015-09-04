@@ -4,7 +4,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/sched.h>
-#include <linux/spi/spi.h>
+#include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/of.h>
@@ -20,11 +20,11 @@
 #include "rtc_proto.h"
 #include "lm_pmu.h"
 
-const struct spi_device_id lm_pmu_sp_ids[] = {
+const struct i2c_device_id lm_pmu_sp_ids[] = {
 	{ "lm_pmu_sp", 0 },
 	{},
 };
-MODULE_DEVICE_TABLE(spi, lm_pmu_sp_ids);
+MODULE_DEVICE_TABLE(i2c, lm_pmu_sp_ids);
 
 static struct of_device_id lm_pmu_sp_dt_ids[] = {
 	{ .compatible = "datarespons,lm-pmu-sp",  .data = 0, },
@@ -55,10 +55,10 @@ static int lm_pmu_get_valids(struct lm_pmu_sp *pmu)
 	u8 rx_buffer[4];
 	status = lm_pmu_exchange(pmu->priv, msg_valid, 0, 0, rx_buffer, sizeof(rx_buffer));
 	if (status < 0)
-		dev_err(&pmu->priv->spi_dev->dev, "%s: failed\n", __func__);
+		dev_err(&pmu->priv->i2c_dev->dev, "%s: failed\n", __func__);
 	else {
 		pmu->psu_valids = le32_to_cpu(*(u32*)rx_buffer);
-		dev_dbg(&pmu->priv->spi_dev->dev, "%s: Valids are 0x%x found\n", __func__, pmu->psu_valids);
+		dev_dbg(&pmu->priv->i2c_dev->dev, "%s: Valids are 0x%x found\n", __func__, pmu->psu_valids);
 	}
 	return status;
 }
@@ -67,7 +67,7 @@ static void lm_pmu_sp_set_charger(struct lm_pmu_sp *pmu, bool enable)
 {
 	pmu->charge_enable = enable;
 	if (enable) {
-		dev_info(&pmu->priv->spi_dev->dev, "Enabling charger\n");
+		dev_info(&pmu->priv->i2c_dev->dev, "Enabling charger\n");
 		gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 0 : 1);
 		if (pmu->charge_high_current)
 			gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 0 : 1);
@@ -75,7 +75,7 @@ static void lm_pmu_sp_set_charger(struct lm_pmu_sp *pmu, bool enable)
 			gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
 	}
 	else {
-		dev_info(&pmu->priv->spi_dev->dev, "Disabling charger\n");
+		dev_info(&pmu->priv->i2c_dev->dev, "Disabling charger\n");
 		gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 1 : 0);
 		gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
 	}
@@ -158,7 +158,7 @@ static const struct attribute_group bat_sysfs_attr_group = {
 static irqreturn_t alert_irq(void *_ptr)
 {
 	struct lm_pmu_sp *pmu = _ptr;
-	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	dev_dbg(&pmu->priv->i2c_dev->dev, "%s\n", __func__);
 	schedule_work(&pmu->alert_work);
 	return IRQ_HANDLED;
 }
@@ -166,7 +166,7 @@ static irqreturn_t alert_irq(void *_ptr)
 static void alert_handler(struct work_struct *ws)
 {
 	struct lm_pmu_sp *pmu = container_of(ws, struct lm_pmu_sp, alert_work);
-	dev_dbg(&pmu->priv->spi_dev->dev, "%s\n", __func__);
+	dev_dbg(&pmu->priv->i2c_dev->dev, "%s\n", __func__);
 	if (lm_pmu_get_valids(pmu) == 0) {
 		lm_pmu_sp_set_charger(pmu, pmu->psu_valids ? true : false);
 		power_supply_changed(pmu->ps_dcin);
@@ -179,7 +179,7 @@ static void alert_handler(struct work_struct *ws)
 
 static int lm_pmu_dt(struct lm_pmu_sp *pmu)
 {
-	struct device *dev = &pmu->priv->spi_dev->dev;
+	struct device *dev = &pmu->priv->i2c_dev->dev;
 	struct device_node *np = dev->of_node;
 	enum of_gpio_flags flag;
 	pmu->charge_enable_gpio = of_get_named_gpio_flags(np, "charge-enable-gpio", 0, &flag);
@@ -214,24 +214,24 @@ static int lm_pmu_dt(struct lm_pmu_sp *pmu)
 	return 0;
 }
 
-static int lm_pmu_sp_probe(struct spi_device *spi)
+static int lm_pmu_sp_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct lm_pmu_sp *pmu;
 	int ret=0;
 
-	pmu = devm_kzalloc(&spi->dev, sizeof(*pmu), GFP_KERNEL);
+	pmu = devm_kzalloc(&client->dev, sizeof(*pmu), GFP_KERNEL);
 	if (!pmu)
 		return -ENOMEM;
 
-	pmu->priv = lm_pmu_init(spi);
+	pmu->priv = lm_pmu_init(client);
 	if (!pmu->priv) {
-		dev_err(&spi->dev, "%s: failed at lm_pmu_init\n", __func__);
+		dev_err(&client->dev, "%s: failed at lm_pmu_init\n", __func__);
 		return -EINVAL;
 	}
 	lm_pmu_set_subclass_data(pmu->priv, pmu);
 	ret = lm_pmu_dt(pmu);
 	if (ret < 0) {
-		dev_err(&spi->dev, "%s: Failed to obtain platform data\n", __func__);
+		dev_err(&client->dev, "%s: Failed to obtain platform data\n", __func__);
 		return -EINVAL;
 	}
 
@@ -248,7 +248,7 @@ static int lm_pmu_sp_probe(struct spi_device *spi)
 
 	pm_power_off = lm_pmu_poweroff;
 
-	pmu->ps_dcin = devm_kzalloc(&spi->dev, sizeof(struct power_supply), GFP_KERNEL);
+	pmu->ps_dcin = devm_kzalloc(&client->dev, sizeof(struct power_supply), GFP_KERNEL);
 	if (!pmu->ps_dcin) {
 		ret = -ENOMEM;
 		goto cleanup;
@@ -259,9 +259,9 @@ static int lm_pmu_sp_probe(struct spi_device *spi)
 	pmu->ps_dcin->num_properties = ARRAY_SIZE(dcin_props_sp);
 	pmu->ps_dcin->properties = dcin_props_sp;
 
-	ret = power_supply_register(&spi->dev, pmu->ps_dcin);
+	ret = power_supply_register(&client->dev, pmu->ps_dcin);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Unable to register MAINS PS\n");
+		dev_err(&client->dev, "Unable to register MAINS PS\n");
 		goto cleanup;
 	}
 	else {
@@ -277,9 +277,9 @@ cleanup:
 	return ret;
 }
 
-static int lm_pmu_sp_remove(struct spi_device *spi)
+static int lm_pmu_sp_remove(struct i2c_client *client)
 {
-	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
+	struct lm_pmu_private *priv = i2c_get_clientdata(client);
 	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
 
 	sysfs_remove_group(&pmu->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
@@ -287,15 +287,15 @@ static int lm_pmu_sp_remove(struct spi_device *spi)
 	return 0;
 }
 
-static void lm_pmu_sp_shutdown(struct spi_device *spi)
+static void lm_pmu_sp_shutdown(struct i2c_client *client)
 {
-	struct lm_pmu_private *priv = dev_get_drvdata(&spi->dev);
+	struct lm_pmu_private *priv = i2c_get_clientdata(client);
 	struct lm_pmu_sp *pmu = lm_pmu_get_subclass_data(priv);
 	gpio_set_value(pmu->charge_enable_gpio, pmu->charge_enable_gpio_active_low ? 1 : 0);
 	gpio_set_value(pmu->charge_iset_gpio, pmu->charge_iset_gpio_active_low ? 1 : 0);
 }
 
-static struct spi_driver lm_pmu_sp_driver = {
+static struct i2c_driver lm_pmu_sp_driver = {
 	.driver = {
 		.name	= "lm_pmu_sp",
 		.owner	= THIS_MODULE,
@@ -307,7 +307,7 @@ static struct spi_driver lm_pmu_sp_driver = {
 	.id_table = lm_pmu_sp_ids,
 };
 
-module_spi_driver(lm_pmu_sp_driver);
+module_i2c_driver(lm_pmu_sp_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Hans Christian Lonstad <hcl@datarespons.no>");

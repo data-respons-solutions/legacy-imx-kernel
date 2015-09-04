@@ -1,10 +1,16 @@
 config LM_PMU_LINKBOX
     bool
-	depends on SPI
+	depends on I2C
 	depends on OF
 	default n
 
 config LM_PMU_SIMPAD
+    bool
+    depends on I2C
+    depends on OF
+    default n
+
+config LM_PMU_FW
     bool
     depends on SPI
     depends on OF
@@ -13,9 +19,11 @@ config LM_PMU_SIMPAD
 config LM_PMU
     tristate "Laerdal PMU drivers"
     depends on SPI
+    depends on I2C
     depends on OF
     default n
     select LM_PMU_LINKBOX
     select LM_PMU_SIMPAD
+    select LM_PMU_FW
     help
       Say Y here to include support for Laerdal PMU uC
