@@ -333,7 +333,7 @@
 	cs-gpios = <&gpio5 12 0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi2>;
-	status = "okay";
+	status = "disabled";
 	
 	pmufw: pmufw@0 {
 	   #address-cells = <1>;
@@ -572,7 +572,6 @@
        irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
        msg-complete-gpio = <&gpio5 14 GPIO_ACTIVE_LOW>;
        alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
-       spi-max-frequency = <4000000>;
        manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
        manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;
        bat-detect-gpios = <&gpio4 31 GPIO_ACTIVE_LOW &gpio5 5 GPIO_ACTIVE_LOW>;
@@ -580,7 +579,6 @@
        spksd-gpio = <&gpio4 25 GPIO_ACTIVE_LOW>;
        amp-shutdown-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;
     };
-
 
 };
 

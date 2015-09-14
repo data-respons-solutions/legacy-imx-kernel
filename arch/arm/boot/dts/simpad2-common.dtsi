@@ -297,19 +297,14 @@
 	cs-gpios = <&gpio5 12 0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi2>;
-	status = "okay";
+	status = "disabled";
 	
-    pmu: pmu@0 {
+    pmufw: pmufw@0 {
        #address-cells = <1>;
        #size-cells = <1>;
-       compatible = "datarespons,lm-pmu-sp";
-       irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
-       msg-complete-gpio = <&gpio5 14 GPIO_ACTIVE_LOW>;
+       compatible = "datarespons,lm-pmu-fw";
        boot0-gpio = <&gpio5 15 GPIO_ACTIVE_HIGH>;
        reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
-       alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
-       charge-enable-gpio = <&gpio4 14 GPIO_ACTIVE_LOW>;
-       charge-iset-gpio = <&gpio3 23 GPIO_ACTIVE_LOW>;
        spi-max-frequency = <4000000>;
        reg = <0>;
     };
@@ -512,6 +507,16 @@
 		reg = <0x55>;
 		status = "okay";
 	};
+	
+	pmu: pmu@40 {
+       reg = <0x40>;
+       compatible = "datarespons,lm-pmu-sp";
+       irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+       msg-complete-gpio = <&gpio5 14 GPIO_ACTIVE_LOW>;
+       alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
+       charge-enable-gpio = <&gpio4 14 GPIO_ACTIVE_LOW>;
+       charge-iset-gpio = <&gpio3 23 GPIO_ACTIVE_LOW>;
+    };
 	
 };
 

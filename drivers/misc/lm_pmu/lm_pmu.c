@@ -89,11 +89,12 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 		dev_err(&priv->i2c_dev->dev, "%s: Could not write to pmu, err = %d\n", __func__, status);
 		goto exit_unlock;
 	}
+#if 1
 	usleep_range(200, 300);
 	gpio_set_value(priv->gpio_msg_complete, 0);
 	usleep_range(200, 300);
 	gpio_set_value(priv->gpio_msg_complete, 1);
-
+#endif
 	status = wait_event_interruptible_timeout(priv->wait, priv->acked, msecs_to_jiffies(1000) );
 
 	if (status <= 0) {
@@ -103,10 +104,10 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 		goto exit_unlock;
 	}
 
-	status = i2c_master_recv(priv->i2c_dev, priv->incoming_buffer, PROTO_BUF_SIZE );
-
+	status = sz = i2c_master_recv(priv->i2c_dev, priv->incoming_buffer, sizeof(MpuMsgHeader_t) + rx_len );
+	dev_dbg(&priv->i2c_dev->dev, "Rx %d bytes\n", status);
 	if (status < 0) {
-		dev_err(&priv->i2c_dev->dev, "%s: SPI header read error\n", __func__);
+		dev_err(&priv->i2c_dev->dev, "%s: Header read error\n", __func__);
 		goto exit_unlock;
 	}
 	msg_hdr = mpu_message_header(priv->incoming_buffer);
@@ -116,12 +117,13 @@ int lm_pmu_exchange(struct lm_pmu_private *priv,
 		status = -EINVAL;
 		goto exit_unlock;
 	}
+
 	/* Get the rest if ok */
 	if (rx_len > 0) {
 		//status = pmu_spi_read(priv->i2c_dev, priv->incoming_buffer+sizeof(MpuMsgHeader_t), rx_len);
 		memcpy(rx_buffer, mpu_get_payload(priv->incoming_buffer), rx_len);
 	}
-
+	status = 0;
 exit_unlock:
 	mutex_unlock(&priv->serial_lock);
 	return status;
@@ -135,7 +137,7 @@ irqreturn_t lm_pmu_spi_irq_handler(int irq, void *dev_id)
 		pr_err("%s: IRQ BUG\n", __func__);
 	priv->acked = true;
 	wake_up_interruptible(&priv->wait);
-	dev_dbg(&priv->i2c_dev->dev, "SPI IRQ\n");
+	dev_dbg(&priv->i2c_dev->dev, "IRQ\n");
 	return IRQ_HANDLED;
 
 }
@@ -277,7 +279,8 @@ static ssize_t lm_pmu_show_version(struct device *dev,
 					 struct device_attribute *attr,
 					 char *buf)
 {
-	struct lm_pmu_private *priv = dev_get_drvdata(dev->parent);
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm_pmu_private *priv = i2c_get_clientdata(client);
 
 	if (strcmp(attr->attr.name, "pmu_git_id") == 0) {
 		return sprintf(buf, "%s\n", priv->version.git_info);
