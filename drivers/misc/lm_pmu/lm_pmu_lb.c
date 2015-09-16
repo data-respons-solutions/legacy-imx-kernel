@@ -76,7 +76,6 @@ struct lm_pmu_lb {
 
 };
 
-/* Sensors */
 /* worst case is 68.10 ms (~14.6Hz, ina219) */
 #define INA2XX_CONVERSION_RATE		5	/* Use max 5 Hz */
 
@@ -649,7 +648,6 @@ static int lm_pmu_lb_probe(struct i2c_client *client, const struct i2c_device_id
 
 	if (!pmu->priv->pmu_ready)
 		return 0;
-
 
 	lm_pmu_get_valids(pmu);
 	lm_pmu_update_bat_detect(pmu);
