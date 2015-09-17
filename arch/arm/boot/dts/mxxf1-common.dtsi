@@ -273,11 +273,11 @@ flash: m25p80@0 {
 };
 
 &wdog1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &wdog2 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c2 {
