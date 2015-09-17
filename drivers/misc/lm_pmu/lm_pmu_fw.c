@@ -19,6 +19,8 @@
 #include "stm32fwu.h"
 #include "stm32_core.h"
 
+int lm_pmu_reset_message(void);
+
 struct lm_pmu_fw {
 	int gpio_boot0;
 	int gpio_reset;
@@ -58,7 +60,7 @@ static int lm_pmu_reset(struct lm_pmu_fw *priv)
 static ssize_t lm_pmu_update(struct file *file, const char __user *data,
 						size_t len, loff_t *ppos)
 {
-	int retries=2;
+	int retries=5;
 	int res=0;
 	int fw_version;
 	struct miscdevice *msdev = file->private_data;
@@ -82,19 +84,23 @@ static ssize_t lm_pmu_update(struct file *file, const char __user *data,
 	}
 
 	gpio_direction_output(priv->gpio_boot0, 1);
-	res = lm_pmu_reset(priv);
+	if (lm_pmu_reset_message() < 0) {
+		dev_warn(msdev->parent, "%s: Failed to reset PMU over I2C interface\n", __func__);
+		res = lm_pmu_reset(priv);
+	}
 	if (res) {
 		dev_err(msdev->parent, "%s: failed to reset PMU\n", __func__);
 		goto restore;
 	}
 
 	while (retries) {
+		msleep(200);
 		if ( stm32fwu_send_sync(priv->fw) >= 0 )
 			break;
 		retries--;
 		if (retries == 0) {
 			dev_err(msdev->parent, "%s: failed get %d\n", __func__, res);
-			goto restore_unlock;
+			goto restore;
 		}
 		msleep(1);
 	}
@@ -106,7 +112,6 @@ static ssize_t lm_pmu_update(struct file *file, const char __user *data,
 	else {
 		dev_info(msdev->parent, "%s: fw version %d\n", __func__, fw_version);
 	}
-restore_unlock:
 restore:
 	gpio_set_value(priv->gpio_boot0, 0);
 	gpio_direction_input(priv->gpio_boot0);
@@ -162,12 +167,14 @@ static int lm_pmu_fw_probe(struct spi_device *spi)
 	if (!pmu)
 		return -ENOMEM;
 
-
+	pmu->spi_dev = spi;
+	spi_set_drvdata(spi, pmu);
 	ret = lm_pmu_fw_parse_of(pmu);
 	if (ret < 0) {
 		dev_err(&spi->dev, "%s: Failed to obtain platform data\n", __func__);
 		goto cleanup;
 	}
+
 
 
 	pmu->fw_dev.minor = 250;

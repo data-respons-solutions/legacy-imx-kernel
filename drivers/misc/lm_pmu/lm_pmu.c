@@ -423,6 +423,10 @@ struct lm_pmu_private *lm_pmu_init(struct i2c_client *client)
 			goto cleanup;
 		}
 	}
+	else {
+		the_one_and_only = 0;
+		return 0;
+	}
 
 	return priv;
 

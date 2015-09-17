@@ -64,7 +64,7 @@ static int stm32fwu_spi_wait_for_ack(struct stm32fwu_fw *fw, int retires)
 				"firmware upgrade wait for ack fail\n");
 			return ret;
 		}
-
+		dev_info(fw->dev, "%s: read 0x%x\n", __func__, fw->buffer[STM32FWU_MAX_BUFFER_SIZE]);
 		if (fw->buffer[STM32FWU_MAX_BUFFER_SIZE] == STM32FWU_ACK ||
 		    fw->buffer[STM32FWU_MAX_BUFFER_SIZE] == STM32FWU_ACK2) {
 			return i;
