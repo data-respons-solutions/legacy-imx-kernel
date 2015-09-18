@@ -84,10 +84,7 @@ static ssize_t lm_pmu_update(struct file *file, const char __user *data,
 	}
 
 	gpio_direction_output(priv->gpio_boot0, 1);
-	if (lm_pmu_reset_message() < 0) {
-		dev_warn(msdev->parent, "%s: Failed to reset PMU over I2C interface\n", __func__);
-		res = lm_pmu_reset(priv);
-	}
+	res = lm_pmu_reset(priv);
 	if (res) {
 		dev_err(msdev->parent, "%s: failed to reset PMU\n", __func__);
 		goto restore;
@@ -107,18 +104,26 @@ static ssize_t lm_pmu_update(struct file *file, const char __user *data,
 	fw_version = stm32fwu_get_version(priv->fw);
 	if (fw_version < 0) {
 		dev_err(msdev->parent, "%s: failed to get fw version\n", __func__);
+		goto restore;
+	}
+	dev_info(msdev->parent, "%s: fw version %d\n", __func__, fw_version);
+	dev_info(msdev->parent, "Prepare to program file of size %d\n", len);
+	res = stm32fwu_update(priv->fw);
+	if (res < 0)
+		dev_err(msdev->parent, "Failed programming\n");
+	else
+		dev_info(msdev->parent, "Programming Succeeded\n");
 
-	}
-	else {
-		dev_info(msdev->parent, "%s: fw version %d\n", __func__, fw_version);
-	}
 restore:
 	gpio_set_value(priv->gpio_boot0, 0);
 	gpio_direction_input(priv->gpio_boot0);
 
 	stm32fwu_destroy(priv->fw);
 	kfree(buffer);
-	return len;
+	if ( res < 0)
+		return res;
+	else
+		return len;
 }
 
 static struct file_operations lm_pmu_fops = {
