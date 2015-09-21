@@ -15,7 +15,7 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/pwm/pwm.h>
 / {
-    model = "Laerdal Medical LINKBOX PLUS)";
+    model = "Laerdal Medical LINKBOX PLUS (REV C)";
     compatible = "datarespons,laerdal2";
 
     aliases {
@@ -148,6 +148,11 @@
         
         gpio-hw-setting1 {
             gpios = <&gpio3 28 GPIO_ACTIVE_HIGH>;
+            status = "okay";
+        };
+        
+        gpio-hw-setting2 {
+            gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;
             status = "okay";
         };
 
@@ -598,6 +603,7 @@
         pinctrl_hog_1: hoggrp-1 {
             fsl,pins = <
                 MX6QDL_PAD_KEY_COL1__GPIO4_IO08     0x80000000      /* AUX_12V_EN (manikin) */
+                MX6QDL_PAD_KEY_COL2__GPIO4_IO10     0x00013000      /* HW Setting 2 (pulldown) */
                 MX6QDL_PAD_KEY_ROW1__GPIO4_IO09     0x80000000      /* AUX_5V_EN (manikin) */
                 MX6QDL_PAD_KEY_ROW2__GPIO4_IO11     0x80000000      /* VCC_5V_EN (system 5v) */
                 MX6QDL_PAD_GPIO_0__CCM_CLKO1        0x130b0         /* External audio clk */
