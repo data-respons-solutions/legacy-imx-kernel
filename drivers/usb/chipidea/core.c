@@ -554,6 +554,7 @@ static irqreturn_t ci_irq(int irq, void *data)
 
 	if (ci->is_otg) {
 		otgsc = hw_read_otgsc(ci, ~0);
+		dev_dbg(ci->dev, "%s: otgsc 0x%0x\n", __func__, otgsc);
 		if (ci_otg_is_fsm_mode(ci)) {
 			ret = ci_otg_fsm_irq(ci);
 			if (ret == IRQ_HANDLED)
@@ -579,6 +580,7 @@ static irqreturn_t ci_irq(int irq, void *data)
 	 */
 	if (ci->is_otg && (otgsc & OTGSC_BSVIE) && (otgsc & OTGSC_BSVIS)) {
 		ci->vbus_glitch_check_event = true;
+		dev_dbg(ci->dev, "%s: VBUS i B mode\n", __func__);
 		/* Clear BSV irq */
 		hw_write_otgsc(ci, OTGSC_BSVIS, OTGSC_BSVIS);
 		ci_otg_queue_work(ci);
@@ -588,7 +590,13 @@ static irqreturn_t ci_irq(int irq, void *data)
 	/* Handle device/host interrupt */
 	if (ci->role != CI_ROLE_END)
 		ret = ci_role(ci)->irq(ci);
-
+	if (ret != IRQ_HANDLED) {
+		if (ci->is_otg && (otgsc & OTGSC_AVVIS) && (otgsc & OTGSC_AVVIE)) {
+			hw_write_otgsc(ci, OTGSC_AVVIS, OTGSC_AVVIS);
+			dev_warn(ci->dev, "%s: AVVIS irq not handled\n", __func__);
+			ret = IRQ_HANDLED;
+		}
+	}
 	return ret;
 }
 
@@ -998,6 +1006,7 @@ static void ci_controller_suspend(struct ci_hdrc *ci)
 {
 	disable_irq(ci->irq);
 	ci_hdrc_enter_lpm(ci, true);
+	hw_write_otgsc(ci, OTGSC_BSVIE, OTGSC_BSVIE);
 	if (ci->platdata->phy_clkgate_delay_us)
 		usleep_range(ci->platdata->phy_clkgate_delay_us,
 				ci->platdata->phy_clkgate_delay_us + 50);

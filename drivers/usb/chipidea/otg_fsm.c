@@ -1007,6 +1007,7 @@ irqreturn_t ci_otg_fsm_irq(struct ci_hdrc *ci)
 	struct otg_fsm *fsm = &ci->fsm;
 
 	otgsc = hw_read_otgsc(ci, ~0);
+	dev_info(ci->dev, "%s: otgsc = 0x%0x\n", __func__, otgsc);
 	fsm->id = (otgsc & OTGSC_ID) ? 1 : 0;
 
 	if (ci_otg_fsm_adp_int(ci) == IRQ_HANDLED)
