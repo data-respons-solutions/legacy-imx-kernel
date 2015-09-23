@@ -1006,7 +1006,8 @@ static void ci_controller_suspend(struct ci_hdrc *ci)
 {
 	disable_irq(ci->irq);
 	ci_hdrc_enter_lpm(ci, true);
-	hw_write_otgsc(ci, OTGSC_BSVIE, OTGSC_BSVIE);
+	if (ci->is_otg)
+		hw_write_otgsc(ci, OTGSC_BSVIE, OTGSC_BSVIE);
 	if (ci->platdata->phy_clkgate_delay_us)
 		usleep_range(ci->platdata->phy_clkgate_delay_us,
 				ci->platdata->phy_clkgate_delay_us + 50);
