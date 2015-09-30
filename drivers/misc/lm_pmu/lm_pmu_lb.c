@@ -1,4 +1,3 @@
-#define DEBUG
 
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -590,8 +589,11 @@ static int lm_pmu_dt(struct lm_pmu_lb *pmu)
 	}
 	for (n=0; n < num_gpio; n++) {
 		pmu->gpio_bat_disable[n] = of_get_named_gpio_flags(np, "bat-disable-gpios", n, &flag);
+		pmu->gpio_bat_disable_active_low[n] = flag == OF_GPIO_ACTIVE_LOW ? 1 : 0;
 		if (!gpio_is_valid(pmu->gpio_bat_disable[n]) ||
-				devm_gpio_request_one(dev, pmu->gpio_bat_disable[n], GPIOF_DIR_IN, bat_disable_names[n])) {
+				devm_gpio_request_one(dev, pmu->gpio_bat_disable[n],
+						pmu->gpio_bat_disable_active_low[n] ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+								bat_disable_names[n])) {
 			dev_err(dev, "%s: Unable to request bat_disable pin %d\n", __func__, pmu->gpio_bat_disable[n]);
 			return -EINVAL;
 		}
