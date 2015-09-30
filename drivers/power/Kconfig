@@ -402,6 +402,12 @@ config IMX6_USB_CHARGER
 	depends on SOC_IMX6Q || SOC_IMX6SL || SOC_IMX6SX
 	help
 	  Say Y to enable Freescale imx6 USB Charger Detect.
+	  
+config LINKBOX_PLUS_PSY
+    bool "Linkbox Plus Power Supply"
+    depends on I2C
+    help
+        Say Y to enable Linkbox Plus PSY
 
 source "drivers/power/reset/Kconfig"
 
