@@ -14,6 +14,65 @@
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 
+#include <linux/platform_data/ina2xx.h>
+
+/* common register definitions */
+#define INA2XX_CONFIG			0x00
+#define INA2XX_SHUNT_VOLTAGE		0x01 /* readonly */
+#define INA2XX_BUS_VOLTAGE		0x02 /* readonly */
+#define INA2XX_POWER			0x03 /* readonly */
+#define INA2XX_CURRENT			0x04 /* readonly */
+#define INA2XX_CALIBRATION		0x05
+
+/* INA226 register definitions */
+#define INA226_MASK_ENABLE		0x06
+#define INA226_ALERT_LIMIT		0x07
+#define INA226_DIE_ID			0xFF
+
+
+/* register count */
+#define INA219_REGISTERS		6
+#define INA226_REGISTERS		8
+
+#define INA2XX_MAX_REGISTERS		8
+
+/* settings - depend on use case */
+#define INA219_CONFIG_DEFAULT		0x399F	/* PGA=8 */
+#define INA226_CONFIG_DEFAULT		0x4527	/* averages=16 */
+
+/* worst case is 68.10 ms (~14.6Hz, ina219) */
+#define INA2XX_CONVERSION_RATE		15
+
+
+struct ina2xx_config {
+	u16 config_default;
+	int calibration_factor;
+	int registers;
+	int shunt_div;
+	int bus_voltage_shift;
+	int bus_voltage_lsb;	/* uV */
+	int power_lsb;		/* uW */
+	int shunt_uohms;
+};
+
+struct ina2xx_data {
+	int power_uW;
+	int current_uA;
+	int voltage_uV;
+};
+
+static const struct ina2xx_config ina2xx_config = {
+	.config_default = INA219_CONFIG_DEFAULT,
+	.calibration_factor = 40960000,
+	.registers = INA219_REGISTERS,
+	.shunt_div = 100,
+	.bus_voltage_shift = 3,
+	.bus_voltage_lsb = 4000,
+	.power_lsb = 20000,
+	.shunt_uohms = 20,
+};
+
+
 
 
 static struct of_device_id linkbox_plus_psy_dt_ids[] = {
@@ -36,10 +95,15 @@ static char *manikin_12v_names[2] = { "12v boost", "12v aux" };
 struct lbp_priv {
 	struct platform_device *pdev;
 	struct i2c_adapter *i2c_adapter;
-	struct i2c_client *ina219_dcin;
-	struct i2c_client *ina219_manikin;
+	struct i2c_client *ina219_dcin_client;
+	struct i2c_client *ina219_manikin_client;
+	struct i2c_board_info ina219_dcin_pdata;
+	struct i2c_board_info ina219_manikin_pdata;
+	struct mutex update_lock;
 	unsigned long last_ina_update;
 	bool ina_valid;
+	struct ina2xx_data dcin_readings;
+	struct ina2xx_data manikin_readings;
 	struct power_supply *ps_dcin;
 	struct power_supply *ps_manikin[2];
 	bool manikin_12v_power_on;
@@ -68,8 +132,42 @@ struct lbp_priv {
 
 };
 
-/* worst case is 68.10 ms (~14.6Hz, ina219) */
-#define INA2XX_CONVERSION_RATE		5	/* Use max 5 Hz */
+static int ina2xx_read_values(struct i2c_client *client, struct ina2xx_data *data)
+{
+	int status =  i2c_smbus_read_word_swapped(client, INA2XX_BUS_VOLTAGE);
+	if (status < 0) {
+		dev_err(&client->dev, "failed reading ina at 0x%x\n", client->addr);
+		return status;
+	}
+	data->voltage_uV = ((status >> ina2xx_config.bus_voltage_shift) *
+			ina2xx_config.bus_voltage_lsb)/1000;
+
+	status = i2c_smbus_read_word_swapped(client, INA2XX_CURRENT);
+	data->current_uA = (s16)((u16)status)*1000;
+	status = i2c_smbus_read_word_swapped(client, INA2XX_POWER);
+	data->power_uW = status * ina2xx_config.power_lsb;
+	return 0;
+}
+
+static int ina2xx_update_device(struct lbp_priv *priv)
+{
+	int status = 0;
+	mutex_lock(&priv->update_lock);
+
+	if (time_after(jiffies, priv->last_ina_update +
+		       HZ / INA2XX_CONVERSION_RATE) || !priv->ina_valid) {
+		priv->last_ina_update = jiffies;
+		priv->ina_valid = true;
+		dev_dbg(&priv->ina219_dcin_client->dev, "Starting ina2xx update\n");
+		status = ina2xx_read_values(priv->ina219_dcin_client, &priv->dcin_readings);
+		if (status)
+			goto abort;
+		status = ina2xx_read_values(priv->ina219_manikin_client, &priv->manikin_readings);
+	}
+abort:
+	mutex_unlock(&priv->update_lock);
+	return status;
+}
 
 static inline int is_set(int gpio, bool alow)
 {
@@ -164,7 +262,7 @@ static int lm_pmu_manikin_12v_get_property(struct power_supply *psy,
 {
 	int status;
 	struct lbp_priv *priv = dev_get_drvdata(psy->dev->parent);
-	status = pmu_update_ina_values(priv);
+	status = ina2xx_update_device(priv);
 	if (status < 0)
 		return status;
 
@@ -175,15 +273,15 @@ static int lm_pmu_manikin_12v_get_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = 0; /* TODO: Assign */
+		val->intval = priv->manikin_readings.voltage_uV;
 		break;
 
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = 0;
+		val->intval = priv->manikin_readings.current_uA;
 		break;
 
 	case POWER_SUPPLY_PROP_POWER_NOW:
-		val->intval = 0;
+		val->intval = priv->manikin_readings.power_uW;
 		break;
 
 	default:
@@ -286,7 +384,6 @@ static int lm_pmu_manikin_5v_set_property(struct power_supply *psy,
 static int lm_pmu_notifier_call(struct notifier_block *nb,
 		unsigned long val, void *v)
 {
-	struct lbp_priv *pmu = container_of(nb, struct lbp_priv, ps_dcin_nb);
 	struct power_supply *psy = v;
 
 	if (strncmp(psy->name, "ds2781-battery", 14) == 0) {
@@ -446,6 +543,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 	enum of_gpio_flags flag;
 	unsigned long rflags;
 	struct device_node *i2c_np;
+	int ret;
 
 	priv->gpio_12v_manikin[0] = priv->gpio_12v_manikin[1] = -1;
 	num_gpio = of_gpio_named_count(np, "manikin-12v-gpio");
@@ -539,10 +637,47 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 	}
 
 	i2c_np = of_parse_phandle(np, "i2c-adapter", 0);
+	if (i2c_np == NULL) {
+		dev_err(dev, "Can not find i2c adapter in DT\n");
+		return -EINVAL;
+	}
 	priv->i2c_adapter = of_find_i2c_adapter_by_node(i2c_np);
+	if (priv->i2c_adapter == NULL) {
+		dev_err(dev, "Can not find i2c adapter for ina's\n");
+		return -EINVAL;
+	}
+
+
+	ret = of_property_read_u16(np, "ina219-dcin-addr", &priv->ina219_dcin_pdata.addr);
+	if (ret < 0) {
+		dev_err(dev, "Unable to get ina219-dcin-addr from DT\n");
+		return ret;
+	}
+	ret = of_property_read_u16(np, "ina219-manikin-addr", &priv->ina219_manikin_pdata.addr);
+	if (ret < 0) {
+		dev_err(dev, "Unable to get ina219-manikin-addr from DT\n");
+		return ret;
+	}
 	return 0;
 }
 
+static int linkbox_plus_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+	struct lbp_priv *priv = dev_get_platdata(&client->dev);
+	i2c_smbus_write_word_swapped(client, INA2XX_CONFIG, ina2xx_config.config_default);
+	i2c_smbus_write_word_swapped(client, INA2XX_CALIBRATION,
+			ina2xx_config.calibration_factor / ina2xx_config.shunt_uohms);
+	return 0;
+
+}
+
+static struct i2c_driver psy_i2c_driver = {
+	.driver = {
+		.name = "linkbox-plus-psy-i2c",
+		.owner = THIS_MODULE,
+	},
+	.probe = linkbox_plus_i2c_probe,
+};
 
 static int linkbox_plus_psy_probe(struct platform_device *pdev)
 {
@@ -560,6 +695,23 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+	/* Handle the INA219's */
+	if (!i2c_check_functionality(priv->i2c_adapter, I2C_FUNC_SMBUS_WORD_DATA))
+		return -EINVAL;
+
+	mutex_init(&priv->update_lock);
+	i2c_register_driver(THIS_MODULE, &psy_i2c_driver);
+
+	priv->ina219_dcin_pdata.platform_data = priv;
+	strncpy(priv->ina219_dcin_pdata.type, "ina219", I2C_NAME_SIZE);
+	priv->ina219_dcin_client = i2c_new_device(priv->i2c_adapter, &priv->ina219_dcin_pdata);
+
+	priv->ina219_manikin_pdata.platform_data = priv;
+	strncpy(priv->ina219_manikin_pdata.type, "ina219", I2C_NAME_SIZE);
+	priv->ina219_manikin_client = i2c_new_device(priv->i2c_adapter, &priv->ina219_manikin_pdata);
+
+
+	/* Power supplies */
 	priv->manikin_12v_power_on = false;
 	priv->manikin_5v_power_on = false;
 
@@ -633,6 +785,7 @@ static int lm_pmu_lb_remove(struct platform_device *pdev)
 {
 	struct lbp_priv *priv = platform_get_drvdata(pdev);
 	sysfs_remove_group(&priv->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
+	put_device(&priv->i2c_adapter->dev);
 	return 0;
 }
 
