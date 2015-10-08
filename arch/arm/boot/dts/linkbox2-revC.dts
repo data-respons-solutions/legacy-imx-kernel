@@ -279,11 +279,10 @@
         audio-routing =
             "Headphone Jack", "HP_L",
             "Headphone Jack", "HP_R",
-            "Ext Spk", "SPK_LP",
-            "Ext Spk", "SPK_LN",
-            "MICB", "AMIC",
-            "RINPUT1", "AMIC",
+            "Ext Spk", "OUT3",
+            "LINPUT1", "MICB",
             "LINPUT1", "AMIC";
+        ncpins = "SPK_RP", "SPK_RN", "SPK_LP", "SPK_LN";
         mux-int-port = <2>;
         mux-ext-port = <3>;
         hp-det-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
