@@ -1981,6 +1981,10 @@ brcmf_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
 	if (!check_vif_up(ifp->vif))
 		return -EIO;
 
+	if (key_idx >= DOT11_MAX_DEFAULT_KEYS) {
+		brcmf_err("Invalid key index (%d)\n", key_idx);
+		return -EINVAL;
+	}
 	if (mac_addr) {
 		brcmf_dbg(TRACE, "Exit");
 		return brcmf_add_keyext(wiphy, ndev, key_idx, mac_addr, params);
