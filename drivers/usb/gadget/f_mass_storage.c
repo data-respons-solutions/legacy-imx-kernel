@@ -222,7 +222,6 @@
 #include "gadget_chips.h"
 #include "configfs.h"
 
-
 /*------------------------------------------------------------------------*/
 
 #define FSG_DRIVER_DESC		"Mass Storage Function"
@@ -248,6 +247,11 @@ static struct usb_gadget_strings *fsg_strings_array[] = {
 	&fsg_stringtab,
 	NULL,
 };
+
+/*	cache_off	Set to disable the write cache (hcl@datarespons.no) */
+static bool cache_off = 0;
+module_param(cache_off, bool, 0444);
+MODULE_PARM_DESC(cache_off, "Set to disable the write cache");
 
 /*-------------------------------------------------------------------------*/
 
@@ -1293,7 +1297,7 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 		buf[1] = 10;		/* Page length */
 		memset(buf+2, 0, 10);	/* None of the fields are changeable */
 
-		if (!changeable_values) {
+		if (!changeable_values && !cache_off) {
 			buf[2] = 0x04;	/* Write cache enable, */
 					/* Read cache not disabled */
 					/* No cache retention priorities */
