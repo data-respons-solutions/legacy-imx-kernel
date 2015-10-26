@@ -25,7 +25,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-#define DEBUG
 
 #include <linux/module.h>
 #include <linux/of_platform.h>
