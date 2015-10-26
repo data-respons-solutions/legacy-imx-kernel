@@ -21,7 +21,7 @@
     aliases {
         mmc0 = &usdhc3;
         mmc1 = &usdhc4;
-        rtc0 = &pmu;
+        rtc0 = &main_rtc;
     };
 
     memory {
@@ -152,7 +152,7 @@
         };
 
         gpio-ddr-setting {
-            gpios = <&gpio3 31 GPIO_ACTIVE_HIGH>;
+            gpios = <&gpio4 21 GPIO_ACTIVE_HIGH>;
             status = "okay";
         };
         
@@ -302,6 +302,23 @@
             "OUT7", "VOUT7",
             "OUT8", "VOUT8";
     };
+    
+    linkbox-plus-psy {
+		status = "disabled";		
+       	compatible = "datarespons,linkbox-plus-psy";
+       	valid-gpios = <&gpio5 13 GPIO_ACTIVE_HIGH &gpio5 14 GPIO_ACTIVE_LOW &gpio5 15 GPIO_ACTIVE_LOW>;
+       	startup-gpios = <&gpio5 16 GPIO_ACTIVE_HIGH &gpio5 17 GPIO_ACTIVE_HIGH>;
+       	manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
+       	manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;
+       	bat-detect-gpios = <&gpio4 31 GPIO_ACTIVE_LOW &gpio5 5 GPIO_ACTIVE_LOW>;
+       	bat-disable-gpios = <&gpio3 22 GPIO_ACTIVE_HIGH &gpio3 31 GPIO_ACTIVE_HIGH>;
+       	bat-ce-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH &gpio4 23 GPIO_ACTIVE_HIGH>;
+       	spksd-gpio = <&gpio4 25 GPIO_ACTIVE_LOW>;
+       	amp-shutdown-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;
+       	i2c-adapter = &i2c2;
+       	ina219-dcin-addr = <0x40>;
+       	ina219-manikin-addr = <0x41>;
+    };
 };
 
 &esai {
@@ -341,16 +358,6 @@
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_ecspi2>;
     status = "disabled";
-    
-    pmufw: pmufw@0 {
-       #address-cells = <1>;
-       #size-cells = <1>;
-       compatible = "datarespons,lm-pmu-fw";
-       boot0-gpio = <&gpio5 15 GPIO_ACTIVE_HIGH>;
-       reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
-       spi-max-frequency = <4000000>;
-       reg = <0>;
-    };
 };
 
 &fec {
@@ -522,6 +529,12 @@
 
 };
 
+&i2c2 {
+    clock-frequency = <400000>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&pinctrl_i2c2>;
+    status = "okay";
+};
 
 &i2c3 {
     clock-frequency = <400000>;
@@ -573,19 +586,10 @@
         reg = <0x4c>;
     };
     
-    pmu: pmu@40 {
-       reg = <0x40>;
-       compatible = "datarespons,lm-pmu-lb";
-       irq-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
-       msg-complete-gpio = <&gpio5 14 GPIO_ACTIVE_LOW>;
-       alert-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
-       manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
-       manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;
-       bat-detect-gpios = <&gpio4 31 GPIO_ACTIVE_LOW &gpio5 5 GPIO_ACTIVE_LOW>;
-       bat-disable-gpios = <&gpio4 23 GPIO_ACTIVE_HIGH &gpio4 24 GPIO_ACTIVE_HIGH>;
-       spksd-gpio = <&gpio4 25 GPIO_ACTIVE_LOW>;
-       amp-shutdown-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;
-    };
+	main_rtc: rtc-m41t82@0x68 {
+		compatible = "ds,mt41t82";
+		reg = <0x68>;
+	};
 
 };
 
@@ -618,11 +622,12 @@
                 MX6QDL_PAD_EIM_A25__GPIO5_IO02      0x0001b000      /* Recovery_setting (control boot) */
                 MX6QDL_PAD_EIM_D20__GPIO3_IO20      0x80000000      /* GP--nWP--flash (SPI flash WP) */
                 MX6QDL_PAD_EIM_D21__GPIO3_IO21      0x80000000      /* CAN_EN */
+                MX6QDL_PAD_EIM_D22__GPIO3_IO22      0x80000000		/* UV2 */
                 MX6QDL_PAD_EIM_D26__GPIO3_IO26      0x80000000      /* GP--WL_BAT_PWR_EN */
                 MX6QDL_PAD_EIM_D27__GPIO3_IO27      0x0001b000      /* HW_Setting_0 */
                 MX6QDL_PAD_EIM_D28__GPIO3_IO28      0x0001b000      /* HW_Setting_1 */
                 MX6QDL_PAD_EIM_D29__GPIO3_IO29      0x0001b000      /* PPWR_BTN_SNS */
-                MX6QDL_PAD_EIM_D31__GPIO3_IO31      0x0001b000      /* DDR_Setting */
+                MX6QDL_PAD_EIM_D31__GPIO3_IO31      0x0001b000      /* UV3 */
                 MX6QDL_PAD_SD1_CMD__GPIO1_IO18      0x80000000      /* LED_R_Status--CPU */
                 MX6QDL_PAD_SD1_CLK__GPIO1_IO20      0x80000000      /* LED_G_Status--CPU */
                 MX6QDL_PAD_SD1_DAT0__GPIO1_IO16     0x80000000      /* LED_B_Status--CPU */
@@ -631,8 +636,9 @@
                 MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25  0x80000000      /* Phy reset (low) */
                 MX6QDL_PAD_ENET_RXD0__GPIO1_IO27    0x80000000      /* Schematic error, set to input */
                 MX6QDL_PAD_ENET_RXD1__GPIO1_IO26    0x80000000      /* Phy IRQ */
-                MX6QDL_PAD_DISP0_DAT2__GPIO4_IO23   0x80000000      /* UV2 (pulldown)*/
-                MX6QDL_PAD_DISP0_DAT3__GPIO4_IO24   0x80000000      /* UV3 (pulldown)*/
+                MX6QDL_PAD_DISP0_DAT0__GPIO4_IO21   0x1b0b1			/* DDR Setting */
+                MX6QDL_PAD_DISP0_DAT1__GPIO4_IO22	0x80000000		/* BAT1_CHP_L2	*/
+                MX6QDL_PAD_DISP0_DAT2__GPIO4_IO23   0x80000000      /* BAT2_CHP_L2  */
                 MX6QDL_PAD_DISP0_DAT4__GPIO4_IO25   0x80000000      /* AC5W_SD */
                 MX6QDL_PAD_DISP0_DAT5__GPIO4_IO26   0x00000878      /* MCU_RST (OD) */
                 MX6QDL_PAD_DISP0_DAT6__GPIO4_IO27   0x80000000      /* MCU_BOOT0 */
@@ -643,11 +649,11 @@
                 MX6QDL_PAD_DISP0_DAT12__GPIO5_IO06  0x80000000      /* WIFI_LED_G */
                 MX6QDL_PAD_DISP0_DAT13__GPIO5_IO07  0x80000000      /* WIFI_LED_B */
                 MX6QDL_PAD_DISP0_DAT14__GPIO5_IO08  0x80000000      /* WIFI_LED_R */
-                MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13  0x0000A800      /* PMU_RST_N (OD) */
-                MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x1b0b1         /* GP_03 (status to PMU) */
-                MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x000000b8      /* PMU BOOT0 */
-                MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16  0x1b0b1         /* GP_PMU_01 (IRQ) */
-                MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17  0x1b0b1         /* GP_PMU_02 (status) */
+                MX6QDL_PAD_DISP0_DAT19__GPIO5_IO13  0x80000000      /* DCIN_VALID (high) */
+                MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x1b0b1         /* nVALID_2 */
+                MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x1b0b1      	/* nVALID_3 */
+                MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16  0x80000000      /* START_ADAPTER */
+                MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17  0x80000000      /* START_KEY */
             >;
         };
     };
@@ -804,6 +810,16 @@
             fsl,pins = <
                 MX6QDL_PAD_CSI0_DAT8__I2C1_SDA      0x4001b8b1
                 MX6QDL_PAD_CSI0_DAT9__I2C1_SCL      0x4001b8b1
+            >;
+        };
+    };
+    
+    
+    i2c2 {
+        pinctrl_i2c2: i2c2grp {
+            fsl,pins = <
+                MX6QDL_PAD_KEY_COL3__I2C2_SCL 0x4001b8b1
+                MX6QDL_PAD_KEY_ROW3__I2C2_SDA 0x4001b8b1
             >;
         };
     };

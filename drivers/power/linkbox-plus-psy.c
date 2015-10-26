@@ -72,8 +72,19 @@ static const struct ina2xx_config ina2xx_config = {
 	.shunt_uohms = 20,
 };
 
+typedef enum _startupCode {
+	START_REBOOT = 0,
+	START_ADAPTER = 1,
+	START_KEY = 2,
+	START_INVALID = 3
+} startupCode;
 
-
+static char *startup_code_text[4] = {
+	"reboot",
+	"dcin",
+	"key",
+	"unknown"
+};
 
 static struct of_device_id linkbox_plus_psy_dt_ids[] = {
 	{ .compatible = "datarespons,linkbox-plus-psy",  .data = 0, },
@@ -88,9 +99,10 @@ MODULE_DEVICE_TABLE(of, linkbox_plus_psy_dt_ids);
 
 static char *bat_disable_names[2] = { "bat_disable1", "bat_disable2" };
 static char *bat_detect_names[2] = { "bat_detect1", "bat_detect2" };
-static char *valid_names[3] = { "valid1", "valid2", "valid3" };
 static char *bat_ce_names[2] = { "bat_ce1", "bat_ce2" };
+static char *valid_names[3] = { "dcin_valid", "nvalid_2", "nvalid_3" };
 static char *manikin_12v_names[2] = { "12v boost", "12v aux" };
+static char *startup_names[2] = { "start-adapter", "start-key" };
 
 struct lbp_priv {
 	struct platform_device *pdev;
@@ -127,10 +139,19 @@ struct lbp_priv {
 	bool gpio_5w_sd_active_low;
 	int gpio_spkr_sd;
 	bool gpio_spkr_sd_active_low;
+	int gpio_startup_code[2];
 	struct notifier_block ps_dcin_nb;
-	struct work_struct alert_work;
 
 };
+
+static startupCode get_startup(struct lbp_priv *priv)
+{
+	int val = 0;
+	val |= gpio_get_value(priv->gpio_startup_code[0]);
+	val |= (gpio_get_value(priv->gpio_startup_code[1]) << 1);
+
+	return (startupCode)(val & 3);
+}
 
 static int ina2xx_read_values(struct i2c_client *client, struct ina2xx_data *data)
 {
@@ -186,11 +207,6 @@ static inline void set_val(int gpio, bool alow, int val)
 		gpio_set_value(gpio, val ? 1 : 0);
 }
 
-static int pmu_update_ina_values(struct lbp_priv *pmu)
-{
-	return 0;
-}
-
 static int get_valids(struct lbp_priv *priv)
 {
 	int status=0;
@@ -227,7 +243,7 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 	int status;
 	struct lbp_priv *priv = dev_get_drvdata(psy->dev->parent);
 	int valids = get_valids(priv);
-	status = pmu_update_ina_values(priv);
+	status = ina2xx_update_device(priv);
 	if (status < 0)
 		return status;
 
@@ -238,15 +254,15 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = 0; /* TODO: Assign */
+		val->intval = priv->dcin_readings.voltage_uV;
 		break;
 
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = 0;
+		val->intval = priv->dcin_readings.current_uA;
 		break;
 
 	case POWER_SUPPLY_PROP_POWER_NOW:
-		val->intval =0;
+		val->intval = priv->dcin_readings.power_uW;
 		break;
 
 	default:
@@ -471,6 +487,19 @@ static ssize_t lm_pmu_set_bat_disable(struct device *dev,
 }
 
 
+
+static ssize_t lm_pmu_show_startup(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct lbp_priv *priv = dev_get_drvdata(dev->parent);
+	startupCode c = get_startup(priv);
+	if (strcmp(attr->attr.name, "startup_code") == 0) {
+		return sprintf(buf, "%s\n", startup_code_text[c]);
+	}
+	return -EINVAL;
+}
+
 static ssize_t lm_pmu_show_bat_ce(struct device *dev,
 					 struct device_attribute *attr,
 					 char *buf)
@@ -494,10 +523,12 @@ static ssize_t lm_pmu_set_bat_ce(struct device *dev,
 	bool enable = buf[0] == '1' ? 1 : 0;
 	if (strcmp(attr->attr.name, "bat_ce1") == 0) {
 		set_val(priv->gpio_bat_ce[0], priv->gpio_bat_ce_active_low[0], enable);
+		priv->bat_ce[0] = enable;
 		return count;
 	}
 	else if (strcmp(attr->attr.name, "bat_ce2") == 0) {
 		set_val(priv->gpio_bat_ce[1], priv->gpio_bat_ce_active_low[1], enable);
+		priv->bat_ce[1] = enable;
 		return count;
 	}
 
@@ -513,6 +544,7 @@ static DEVICE_ATTR(bat_valid1, S_IRUGO, lm_pmu_show_bat_det, NULL);
 static DEVICE_ATTR(bat_valid2, S_IRUGO, lm_pmu_show_bat_det, NULL);
 static DEVICE_ATTR(bat_ce1, 0644, lm_pmu_show_bat_ce, lm_pmu_set_bat_ce);
 static DEVICE_ATTR(bat_ce2, 0644, lm_pmu_show_bat_ce, lm_pmu_set_bat_ce);
+static DEVICE_ATTR(startup_code, S_IRUGO, lm_pmu_show_startup, NULL);
 
 static struct attribute *bat_sysfs_attr[] = {
 	&dev_attr_bat_det1.attr,
@@ -523,6 +555,7 @@ static struct attribute *bat_sysfs_attr[] = {
 	&dev_attr_bat_valid2.attr,
 	&dev_attr_bat_ce1.attr,
 	&dev_attr_bat_ce2.attr,
+	&dev_attr_startup_code.attr,
 	NULL,
 };
 
@@ -582,6 +615,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 		return -EINVAL;
 	}
 
+	/* Battery detects */
 	priv->gpio_bat_det[0] = priv->gpio_bat_det[1] = -1;
 	num_gpio = of_gpio_named_count(np, "bat-detect-gpios");
 	if (num_gpio > 2) {
@@ -598,6 +632,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 		priv->gpio_bat_det_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
 	}
 
+	/* Bat Disables */
 	priv->gpio_bat_disable[0] = priv->gpio_bat_disable[1] = -1;
 	num_gpio = of_gpio_named_count(np, "bat-disable-gpios");
 	if (num_gpio > 2) {
@@ -605,14 +640,57 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 		return -EINVAL;
 	}
 	for (n=0; n < num_gpio; n++) {
+		priv->bat_disable[n] = false;
 		priv->gpio_bat_disable[n] = of_get_named_gpio_flags(np, "bat-disable-gpios", n, &flag);
+		priv->gpio_bat_disable_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
 		if (!gpio_is_valid(priv->gpio_bat_disable[n]) ||
-				devm_gpio_request_one(dev, priv->gpio_bat_disable[n], GPIOF_DIR_IN, bat_disable_names[n])) {
+				devm_gpio_request_one(dev, priv->gpio_bat_disable[n],
+						priv->gpio_bat_disable_active_low[n] ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+								bat_disable_names[n])) {
 			dev_err(dev, "%s: Unable to request bat_disable pin %d\n", __func__, priv->gpio_bat_disable[n]);
 			return -EINVAL;
 		}
-		priv->gpio_bat_disable_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
 	}
+
+	/* Charge enables */
+	priv->gpio_bat_ce[0] = priv->gpio_bat_ce[1] = -1;
+	priv->bat_ce[0] = priv->bat_ce[1] = false;
+	num_gpio = of_gpio_named_count(np, "bat-ce-gpios");
+	if (num_gpio > 2) {
+		dev_err(dev, "%s: More than gpios for bat-ce-gpios [%d]\n", __func__, num_gpio);
+		return -EINVAL;
+	}
+	for (n=0; n < num_gpio; n++) {
+		priv->gpio_bat_ce[n] = of_get_named_gpio_flags(np, "bat-ce-gpios", n, &flag);
+		priv->gpio_bat_ce_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
+		if (!gpio_is_valid(priv->gpio_bat_ce[n]) ||
+				devm_gpio_request_one(dev, priv->gpio_bat_ce[n],
+						priv->gpio_bat_ce_active_low[n] ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+						bat_ce_names[n])) {
+			dev_err(dev, "%s: Unable to request bat_ce pin %d\n", __func__, priv->gpio_bat_ce[n]);
+			return -EINVAL;
+		}
+
+	}
+
+	/* Valids */
+	priv->gpio_valid[0] = priv->gpio_valid[1] = priv->gpio_valid[2] = -1;
+	num_gpio = of_gpio_named_count(np, "valid-gpios");
+	if (num_gpio > 3) {
+		dev_err(dev, "%s: More than gpios for valid-gpios [%d]\n", __func__, num_gpio);
+		return -EINVAL;
+	}
+	for (n=0; n < num_gpio; n++) {
+		priv->gpio_valid[n] = of_get_named_gpio_flags(np, "valid-gpios", n, &flag);
+		priv->gpio_valid_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
+		if (!gpio_is_valid(priv->gpio_valid[n]) ||
+				devm_gpio_request_one(dev, priv->gpio_valid[n], GPIOF_DIR_IN, valid_names[n])) {
+			dev_err(dev, "%s: Unable to request gpio_valid pin %d\n", __func__, priv->gpio_valid[n]);
+			return -EINVAL;
+		}
+	}
+
+
 
 	priv->gpio_5w_sd = of_get_named_gpio_flags(np, "spksd-gpio", 0, &flag);
 	if (gpio_is_valid(priv->gpio_5w_sd)) {
@@ -636,6 +714,23 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 		}
 	}
 
+	/* Startup codes */
+	priv->gpio_startup_code[0] = priv->gpio_startup_code[1] = -1;
+	num_gpio = of_gpio_named_count(np, "startup-gpios");
+	if (num_gpio > 2) {
+		dev_err(dev, "%s: to many startup gpios [%d]\n", __func__, num_gpio);
+		return -EINVAL;
+	}
+	for (n=0; n < num_gpio; n++) {
+		priv->gpio_startup_code[n] = of_get_named_gpio_flags(np, "startup-gpios", n, &flag);
+		if (!gpio_is_valid(priv->gpio_startup_code[n]) ||
+				devm_gpio_request_one(dev, priv->gpio_startup_code[n], GPIOF_DIR_IN, startup_names[n])) {
+			dev_err(dev, "%s: Unable to request startup-gpios pin %d\n", __func__, priv->gpio_startup_code[n]);
+			return -EINVAL;
+		}
+	}
+
+	/* INA219 section */
 	i2c_np = of_parse_phandle(np, "i2c-adapter", 0);
 	if (i2c_np == NULL) {
 		dev_err(dev, "Can not find i2c adapter in DT\n");
@@ -646,7 +741,6 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 		dev_err(dev, "Can not find i2c adapter for ina's\n");
 		return -EINVAL;
 	}
-
 
 	ret = of_property_read_u16(np, "ina219-dcin-addr", &priv->ina219_dcin_pdata.addr);
 	if (ret < 0) {

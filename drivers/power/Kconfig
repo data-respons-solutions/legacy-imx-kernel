@@ -405,9 +405,15 @@ config IMX6_USB_CHARGER
 	  
 config LINKBOX_PLUS_PSY
     bool "Linkbox Plus Power Supply"
-    depends on I2C
+    depends on I2C && GPIOLIB
     help
         Say Y to enable Linkbox Plus PSY
+        
+config SIMPAD_PLUS_PSY
+    bool "Simpad Plus Power Supply"
+    depends on GPIOLIB
+    help
+        Say Y to enable Simpad Plus PSY
 
 source "drivers/power/reset/Kconfig"
 
