@@ -148,7 +148,11 @@ put_func:
 }
 
 static struct usb_configuration msg_config_driver = {
+#ifdef CONFIG_USB_MASS_STORAGE_LABEL
+	.label = CONFIG_USB_MASS_STORAGE_LABEL,
+#else
 	.label			= "Linux File-Backed Storage",
+#endif
 	.bConfigurationValue	= 1,
 	.bmAttributes		= USB_CONFIG_ATT_SELFPOWER,
 };
