@@ -953,11 +953,6 @@ config USB_MASS_STORAGE
 	  Say "y" to link the driver statically, or "m" to build
 	  a dynamically linked module called "g_mass_storage".
 
-config USB_MASS_STORAGE_LABEL
-	string "Identifier"
-	default "Linux File-Backed Storage"
-	depends on USB_MASS_STORAGE
-
 config FSL_UTP
         bool "UTP over Storage Gadget"
         depends on USB_MASS_STORAGE
