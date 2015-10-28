@@ -953,6 +953,13 @@ config USB_MASS_STORAGE
 	  Say "y" to link the driver statically, or "m" to build
 	  a dynamically linked module called "g_mass_storage".
 
+config USB_MASS_STORAGE_LAERDAL
+	bool "Laerdal specific version"
+	depends on USB_MASS_STORAGE
+	default off
+	help
+	  Turns off write cache and renames the device	
+
 config FSL_UTP
         bool "UTP over Storage Gadget"
         depends on USB_MASS_STORAGE

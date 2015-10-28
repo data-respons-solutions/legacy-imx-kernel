@@ -222,6 +222,7 @@
 #include "gadget_chips.h"
 #include "configfs.h"
 
+
 /*------------------------------------------------------------------------*/
 
 #define FSG_DRIVER_DESC		"Mass Storage Function"
@@ -247,11 +248,6 @@ static struct usb_gadget_strings *fsg_strings_array[] = {
 	&fsg_stringtab,
 	NULL,
 };
-
-/*	cache_off	Set to disable the write cache (hcl@datarespons.no) */
-static bool cache_off = 0;
-module_param(cache_off, bool, 0444);
-MODULE_PARM_DESC(cache_off, "Set to disable the write cache");
 
 /*-------------------------------------------------------------------------*/
 
@@ -344,6 +340,16 @@ struct fsg_dev {
 	void			*utp;
 #endif
 };
+
+#ifdef CONFIG_USB_MASS_STORAGE_LAERDAL
+static const bool cache_off = true;
+static const char *gadget_name = "Simpad PLUS";
+static const char *vendor_name = "Laerdal";
+#else
+static const bool cache_off = false;
+static const char *gadget_name = "File-Stor Gadget";
+static const char *vendor_name = "Linux"
+#endif
 
 #ifdef CONFIG_FSL_UTP
 #include "fsl_updater.h"
@@ -3071,11 +3077,11 @@ void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
 	/* Prepare inquiryString */
 	i = get_default_bcdDevice();
 	snprintf(common->inquiry_string, sizeof(common->inquiry_string),
-		 "%-8s%-16s%04x", vn ?: "Linux",
+		 "%-8s%-16s%04x", vn ?: vendor_name,
 		 /* Assume product name dependent on the first LUN */
 		 pn ?: ((*common->luns)->cdrom
 		     ? "File-CD Gadget"
-		     : "File-Stor Gadget"),
+		     : gadget_name),
 		 i);
 }
 EXPORT_SYMBOL_GPL(fsg_common_set_inquiry_string);
