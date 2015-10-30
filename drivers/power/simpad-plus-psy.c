@@ -281,7 +281,7 @@ static void lm_pmu_sp_shutdown(struct platform_device *pdev)
 
 static struct platform_driver simpad_plus_psy_driver = {
 	.driver = {
-		.name = "linkbox-plus-psy",
+		.name = "simpad-plus-psy",
 		.owner = THIS_MODULE,
 		.of_match_table = simpad_plus_psy_dt_ids,
 	},
