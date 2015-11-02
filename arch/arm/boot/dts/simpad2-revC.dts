@@ -258,7 +258,7 @@
             "Headphone Jack", "HP_R",
             "Ext Spk", "SPK_LP",
             "Ext Spk", "SPK_LN",
-            "LINPUT1", "MICB",
+            "AMIC", "MICB",
             "LINPUT1", "AMIC";
         ncpins = "LINPUT2", "LINPUT3", "RINPUT1", "RINPUT2", "RINPUT3", "SPK_RP", "SPK_RN", "OUT3";
         mux-int-port = <2>;
@@ -270,10 +270,11 @@
     };
     
     simpad-plus-psy {
-		status = "disabled";		
+		status = "okay";		
        	compatible = "datarespons,simpad-plus-psy";
        	startup-gpios = <&gpio5 16 GPIO_ACTIVE_HIGH &gpio5 17 GPIO_ACTIVE_HIGH>;
-       	bat-ce-gpios = <&gpio4 14 GPIO_ACTIVE_HIGH &gpio3 23 GPIO_ACTIVE_HIGH>;
+       	bat-ce-gpios = <&gpio4 14 GPIO_ACTIVE_HIGH &gpio3 23 GPIO_ACTIVE_LOW>;
+       	dcin-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
     };
 };
 
@@ -494,9 +495,9 @@
     pinctrl-0 = <&pinctrl_i2c3>;
     status = "okay";
 
-    egalax_ts@1c {
+    egalax_ts@4 {
         compatible = "eeti,egalax_ts";
-        reg = <0x1c>;
+        reg = <0x4>;
         interrupt-parent = <&gpio7>;
         interrupts = <13 2>;
         wakeup-gpios = <&gpio7 13 0>;
@@ -510,7 +511,7 @@
     };
     
 	main_rtc: rtc-m41t82@0x68 {
-		compatible = "ds,mt41t82";
+		compatible = "ds,m41t82";
 		reg = <0x68>;
 	};
     
@@ -528,12 +529,14 @@
                 MX6QDL_PAD_GPIO_4__GPIO1_IO04       0x0001b000      /* Function key (active low, pullup) */
                 MX6QDL_PAD_KEY_COL2__GPIO4_IO10     0x80000000      /* Touch reset (low)    */
                 MX6QDL_PAD_KEY_ROW1__GPIO4_IO09     0x80000000      /* AUX_5V_EN */
+                MX6QDL_PAD_KEY_ROW4__GPIO4_IO15     0x00002051      /* CLR_STATUS */
                 MX6QDL_PAD_KEY_COL4__GPIO4_IO14     0x1b0b1         /* GP--Charger_nCE */
                 MX6QDL_PAD_GPIO_0__CCM_CLKO1        0x130b0         /* External audio clk */
                 MX6QDL_PAD_GPIO_1__WDOG2_B          0x80000000
+                MX6QDL_PAD_GPIO_6__GPIO1_IO06       0x00010000		/* Mic detect */
                 MX6QDL_PAD_GPIO_7__GPIO1_IO07       0x80000000      /* LCD flip H */
                 MX6QDL_PAD_GPIO_8__GPIO1_IO08       0x80000000      /* LCD flip V */
-                MX6QDL_PAD_GPIO_9__GPIO1_IO09       0x0001b000      /* GP--HP_DET, pullup */
+                MX6QDL_PAD_GPIO_9__GPIO1_IO09       0x00010000      /* GP--HP_DET, pullup */
                 MX6QDL_PAD_GPIO_18__GPIO7_IO13      0x0001b8b1      /* GP--CTP_nINT (touch interrupt */
                 MX6QDL_PAD_GPIO_19__GPIO4_IO05      0x1b0b1         /* DC_IN_nFLG (used as alert) */
                 MX6QDL_PAD_NANDF_CS0__GPIO6_IO11    0x80000000      /* GP--WL_VDDIO_EN */

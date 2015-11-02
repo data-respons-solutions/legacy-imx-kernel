@@ -1,4 +1,3 @@
-#define DEBUG
 
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -48,7 +47,6 @@ struct ina2xx_config {
 	u16 config_default;
 	int calibration_factor;
 	int registers;
-	int shunt_div;
 	int bus_voltage_shift;
 	int bus_voltage_lsb;	/* uV */
 	int power_lsb;		/* uW */
@@ -65,11 +63,10 @@ static const struct ina2xx_config ina2xx_config = {
 	.config_default = INA219_CONFIG_DEFAULT,
 	.calibration_factor = 40960000,
 	.registers = INA219_REGISTERS,
-	.shunt_div = 100,
 	.bus_voltage_shift = 3,
 	.bus_voltage_lsb = 4000,
 	.power_lsb = 20000,
-	.shunt_uohms = 20,
+	.shunt_uohms = 20000,
 };
 
 typedef enum _startupCode {
@@ -140,16 +137,17 @@ struct lbp_priv {
 	int gpio_spkr_sd;
 	bool gpio_spkr_sd_active_low;
 	int gpio_startup_code[2];
+	int gpio_clr_status;
+	bool gpio_clr_status_active_low;
 	struct notifier_block ps_dcin_nb;
 
 };
 
 static startupCode get_startup(struct lbp_priv *priv)
 {
-	int val = 0;
-	val |= gpio_get_value(priv->gpio_startup_code[0]);
-	val |= (gpio_get_value(priv->gpio_startup_code[1]) << 1);
-
+	int val = gpio_get_value(priv->gpio_startup_code[0]) ? 1 : 0;
+	if (gpio_get_value(priv->gpio_startup_code[1]))
+		val |= 2;
 	return (startupCode)(val & 3);
 }
 
@@ -161,7 +159,7 @@ static int ina2xx_read_values(struct i2c_client *client, struct ina2xx_data *dat
 		return status;
 	}
 	data->voltage_uV = ((status >> ina2xx_config.bus_voltage_shift) *
-			ina2xx_config.bus_voltage_lsb)/1000;
+			ina2xx_config.bus_voltage_lsb);
 
 	status = i2c_smbus_read_word_swapped(client, INA2XX_CURRENT);
 	data->current_uA = (s16)((u16)status)*1000;
@@ -577,6 +575,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 	unsigned long rflags;
 	struct device_node *i2c_np;
 	int ret;
+	u32 prop32;
 
 	priv->gpio_12v_manikin[0] = priv->gpio_12v_manikin[1] = -1;
 	num_gpio = of_gpio_named_count(np, "manikin-12v-gpio");
@@ -587,7 +586,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 	for (n=0; n < num_gpio; n++) {
 		priv->gpio_12v_manikin[n] = of_get_named_gpio_flags(np, "manikin-12v-gpio", n, &flag);
 		if (gpio_is_valid(priv->gpio_12v_manikin[n])) {
-			priv->gpio_12v_manikin_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
+			priv->gpio_12v_manikin_active_low[n] = flag & OF_GPIO_ACTIVE_LOW;
 			rflags = priv->gpio_12v_manikin_active_low[n] ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
 			if (devm_gpio_request_one(dev, priv->gpio_12v_manikin[n], rflags, manikin_12v_names[n]) ) {
 				dev_err(dev, "%s: unable to request GPIO manikin-12v-gpio [%d]\n", __func__, priv->gpio_12v_manikin[n]);
@@ -608,7 +607,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 			dev_err(dev, "%s: unable to request GPIO manikin-5v-gpio [%d]\n", __func__, priv->gpio_5v_manikin);
 			return -EINVAL;
 		}
-		priv->gpio_5v_manikin_active_low = flag == OF_GPIO_ACTIVE_LOW;
+		priv->gpio_5v_manikin_active_low = flag & OF_GPIO_ACTIVE_LOW;
 	}
 	else {
 		dev_err(dev, "%s: Invalid GPIO manikin-5v-gpio [%d]\n", __func__, priv->gpio_5v_manikin);
@@ -629,7 +628,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 			dev_err(dev, "%s: Unable to request bat_detect pin %d\n", __func__, priv->gpio_bat_det[n]);
 			return -EINVAL;
 		}
-		priv->gpio_bat_det_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
+		priv->gpio_bat_det_active_low[n] = flag & OF_GPIO_ACTIVE_LOW;
 	}
 
 	/* Bat Disables */
@@ -642,7 +641,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 	for (n=0; n < num_gpio; n++) {
 		priv->bat_disable[n] = false;
 		priv->gpio_bat_disable[n] = of_get_named_gpio_flags(np, "bat-disable-gpios", n, &flag);
-		priv->gpio_bat_disable_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
+		priv->gpio_bat_disable_active_low[n] = flag & OF_GPIO_ACTIVE_LOW;
 		if (!gpio_is_valid(priv->gpio_bat_disable[n]) ||
 				devm_gpio_request_one(dev, priv->gpio_bat_disable[n],
 						priv->gpio_bat_disable_active_low[n] ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
@@ -662,7 +661,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 	}
 	for (n=0; n < num_gpio; n++) {
 		priv->gpio_bat_ce[n] = of_get_named_gpio_flags(np, "bat-ce-gpios", n, &flag);
-		priv->gpio_bat_ce_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
+		priv->gpio_bat_ce_active_low[n] = flag & OF_GPIO_ACTIVE_LOW;
 		if (!gpio_is_valid(priv->gpio_bat_ce[n]) ||
 				devm_gpio_request_one(dev, priv->gpio_bat_ce[n],
 						priv->gpio_bat_ce_active_low[n] ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
@@ -682,7 +681,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 	}
 	for (n=0; n < num_gpio; n++) {
 		priv->gpio_valid[n] = of_get_named_gpio_flags(np, "valid-gpios", n, &flag);
-		priv->gpio_valid_active_low[n] = flag == OF_GPIO_ACTIVE_LOW;
+		priv->gpio_valid_active_low[n] = flag & OF_GPIO_ACTIVE_LOW;
 		if (!gpio_is_valid(priv->gpio_valid[n]) ||
 				devm_gpio_request_one(dev, priv->gpio_valid[n], GPIOF_DIR_IN, valid_names[n])) {
 			dev_err(dev, "%s: Unable to request gpio_valid pin %d\n", __func__, priv->gpio_valid[n]);
@@ -694,7 +693,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 
 	priv->gpio_5w_sd = of_get_named_gpio_flags(np, "spksd-gpio", 0, &flag);
 	if (gpio_is_valid(priv->gpio_5w_sd)) {
-		priv->gpio_5w_sd_active_low = flag == OF_GPIO_ACTIVE_LOW ? 1 : 0;
+		priv->gpio_5w_sd_active_low = flag & OF_GPIO_ACTIVE_LOW ? 1 : 0;
 		if (devm_gpio_request_one(dev, priv->gpio_5w_sd,
 				priv->gpio_5w_sd_active_low ? GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH,
 						"spksd-gpio")) {
@@ -705,7 +704,7 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 
 	priv->gpio_spkr_sd = of_get_named_gpio_flags(np, "amp-shutdown-gpio", 0, &flag);
 	if (gpio_is_valid(priv->gpio_spkr_sd)) {
-		priv->gpio_spkr_sd_active_low = flag == OF_GPIO_ACTIVE_LOW ? 1 : 0;
+		priv->gpio_spkr_sd_active_low = flag & OF_GPIO_ACTIVE_LOW ? 1 : 0;
 		if (devm_gpio_request_one(dev, priv->gpio_spkr_sd,
 				priv->gpio_spkr_sd_active_low ? GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH,
 						"amp-shutdown-gpio")) {
@@ -730,6 +729,16 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 		}
 	}
 
+	/* CLR_STATUS */
+
+	priv->gpio_clr_status = of_get_named_gpio_flags(np, "clr-status-gpio", 0, &flag);
+	priv->gpio_clr_status_active_low = flag & OF_GPIO_ACTIVE_LOW ? true : false;
+	if (gpio_is_valid(priv->gpio_clr_status)) {
+		devm_gpio_request_one(dev, priv->gpio_clr_status,
+				priv->gpio_clr_status_active_low ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+						"clr-status");
+	}
+
 	/* INA219 section */
 	i2c_np = of_parse_phandle(np, "i2c-adapter", 0);
 	if (i2c_np == NULL) {
@@ -742,36 +751,22 @@ static int lm_pmu_dt(struct lbp_priv *priv)
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u16(np, "ina219-dcin-addr", &priv->ina219_dcin_pdata.addr);
+	ret = of_property_read_u32(np, "ina219-dcin-addr", &prop32);
 	if (ret < 0) {
 		dev_err(dev, "Unable to get ina219-dcin-addr from DT\n");
 		return ret;
 	}
-	ret = of_property_read_u16(np, "ina219-manikin-addr", &priv->ina219_manikin_pdata.addr);
+	priv->ina219_dcin_pdata.addr = (u16)prop32;
+	ret = of_property_read_u32(np, "ina219-manikin-addr", &prop32);
 	if (ret < 0) {
 		dev_err(dev, "Unable to get ina219-manikin-addr from DT\n");
 		return ret;
 	}
+	priv->ina219_manikin_pdata.addr = prop32;
+	dev_dbg(dev, "ina219-dcin at 0x%x, ina219-manikin at 0x%x\n",
+			priv->ina219_dcin_pdata.addr, priv->ina219_manikin_pdata.addr );
 	return 0;
 }
-
-static int linkbox_plus_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
-{
-	struct lbp_priv *priv = dev_get_platdata(&client->dev);
-	i2c_smbus_write_word_swapped(client, INA2XX_CONFIG, ina2xx_config.config_default);
-	i2c_smbus_write_word_swapped(client, INA2XX_CALIBRATION,
-			ina2xx_config.calibration_factor / ina2xx_config.shunt_uohms);
-	return 0;
-
-}
-
-static struct i2c_driver psy_i2c_driver = {
-	.driver = {
-		.name = "linkbox-plus-psy-i2c",
-		.owner = THIS_MODULE,
-	},
-	.probe = linkbox_plus_i2c_probe,
-};
 
 static int linkbox_plus_psy_probe(struct platform_device *pdev)
 {
@@ -783,6 +778,8 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 
+	priv->pdev = pdev;
+	platform_set_drvdata(pdev, priv);
 	ret = lm_pmu_dt(priv);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "%s: Failed to obtain platform data\n", __func__);
@@ -794,17 +791,32 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	mutex_init(&priv->update_lock);
-	i2c_register_driver(THIS_MODULE, &psy_i2c_driver);
 
 	priv->ina219_dcin_pdata.platform_data = priv;
 	strncpy(priv->ina219_dcin_pdata.type, "ina219", I2C_NAME_SIZE);
 	priv->ina219_dcin_client = i2c_new_device(priv->i2c_adapter, &priv->ina219_dcin_pdata);
 
+	if (NULL == priv->ina219_dcin_client) {
+		dev_err(&pdev->dev, "%s: Failed to register ina219 dcin\n", __func__);
+		ret = -ENODEV;
+		goto cleanup;
+	}
 	priv->ina219_manikin_pdata.platform_data = priv;
 	strncpy(priv->ina219_manikin_pdata.type, "ina219", I2C_NAME_SIZE);
 	priv->ina219_manikin_client = i2c_new_device(priv->i2c_adapter, &priv->ina219_manikin_pdata);
+	if (NULL == priv->ina219_manikin_client) {
+		dev_err(&pdev->dev, "%s: Failed to register ina219 manikin\n", __func__);
+		ret = -ENODEV;
+		goto cleanup;
+	}
 
+	i2c_smbus_write_word_swapped(priv->ina219_dcin_client, INA2XX_CONFIG, ina2xx_config.config_default);
+	i2c_smbus_write_word_swapped(priv->ina219_dcin_client, INA2XX_CALIBRATION,
+				ina2xx_config.calibration_factor / ina2xx_config.shunt_uohms);
 
+	i2c_smbus_write_word_swapped(priv->ina219_manikin_client, INA2XX_CONFIG, ina2xx_config.config_default);
+	i2c_smbus_write_word_swapped(priv->ina219_manikin_client, INA2XX_CALIBRATION,
+					ina2xx_config.calibration_factor / ina2xx_config.shunt_uohms);
 	/* Power supplies */
 	priv->manikin_12v_power_on = false;
 	priv->manikin_5v_power_on = false;
@@ -815,7 +827,6 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	priv->pdev = pdev;
 	priv->ps_dcin->name = "DCIN";
 	priv->ps_dcin->type = POWER_SUPPLY_TYPE_MAINS;
 	priv->ps_dcin->get_property = lm_pmu_mains_get_property;

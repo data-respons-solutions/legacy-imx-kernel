@@ -23,6 +23,7 @@ MODULE_DEVICE_TABLE(of, simpad_plus_psy_dt_ids);
 #define VALID_MASK_DCIN 0x1
 
 static char *startup_names[2] = { "start-adapter", "start-key" };
+static char *bat_ce_names[2] = { "cen", "charge_high" };
 typedef enum _startupCode {
 	START_REBOOT = 0,
 	START_ADAPTER = 1,
@@ -51,10 +52,9 @@ struct sbp_priv {
 
 static startupCode get_startup(struct sbp_priv *priv)
 {
-	int val = 0;
-	val |= gpio_get_value(priv->gpio_startup_code[0]);
-	val |= (gpio_get_value(priv->gpio_startup_code[1]) << 1);
-
+	int val = gpio_get_value(priv->gpio_startup_code[0]) ? 1 : 0;
+	if (gpio_get_value(priv->gpio_startup_code[1]))
+		val |= 2;
 	return (startupCode)(val & 3);
 }
 
@@ -118,6 +118,7 @@ static ssize_t lm_pmu_show_startup(struct device *dev,
 {
 	struct sbp_priv *priv = dev_get_drvdata(dev->parent);
 	startupCode c = get_startup(priv);
+	//dev_info(&priv->pdev->dev, "startup code = %d\n", c);
 	if (strcmp(attr->attr.name, "startup_code") == 0) {
 		return sprintf(buf, "%s\n", startup_code_text[c]);
 	}
@@ -130,10 +131,10 @@ static ssize_t lm_pmu_show_bat_ce(struct device *dev,
 {
 	struct sbp_priv *priv = dev_get_drvdata(dev->parent);
 
-	if (strcmp(attr->attr.name, "bat_ce1") == 0) {
+	if (strcmp(attr->attr.name, "bat_charge_en") == 0) {
 		return sprintf(buf, "%d\n", priv->bat_ce[0]);
 	}
-	if (strcmp(attr->attr.name, "bat_ce2") == 0) {
+	if (strcmp(attr->attr.name, "bat_high_current") == 0) {
 		return sprintf(buf, "%d\n", priv->bat_ce[1]);
 	}
 	return -EINVAL;
@@ -145,11 +146,11 @@ static ssize_t lm_pmu_set_bat_ce(struct device *dev,
 {
 	struct sbp_priv *priv = dev_get_drvdata(dev->parent);
 	bool enable = buf[0] == '1' ? 1 : 0;
-	if (strcmp(attr->attr.name, "bat_ce1") == 0) {
+	if (strcmp(attr->attr.name, "bat_charge_en") == 0) {
 		set_val(priv->gpio_bat_ce[0], priv->gpio_bat_ce_active_low[0], enable);
 		return count;
 	}
-	else if (strcmp(attr->attr.name, "bat_ce2") == 0) {
+	else if (strcmp(attr->attr.name, "bat_high_current") == 0) {
 		set_val(priv->gpio_bat_ce[1], priv->gpio_bat_ce_active_low[1], enable);
 		return count;
 	}
@@ -158,13 +159,13 @@ static ssize_t lm_pmu_set_bat_ce(struct device *dev,
 }
 
 
-static DEVICE_ATTR(bat_ce1, 0644, lm_pmu_show_bat_ce, lm_pmu_set_bat_ce);
-static DEVICE_ATTR(bat_ce2, 0644, lm_pmu_show_bat_ce, lm_pmu_set_bat_ce);
+static DEVICE_ATTR(bat_charge_en, 0644, lm_pmu_show_bat_ce, lm_pmu_set_bat_ce);
+static DEVICE_ATTR(bat_high_current, 0644, lm_pmu_show_bat_ce, lm_pmu_set_bat_ce);
 static DEVICE_ATTR(startup_code, S_IRUGO, lm_pmu_show_startup, NULL);
 
 static struct attribute *bat_sysfs_attr[] = {
-	&dev_attr_bat_ce1.attr,
-	&dev_attr_bat_ce2.attr,
+	&dev_attr_bat_charge_en.attr,
+	&dev_attr_bat_high_current.attr,
 	&dev_attr_startup_code.attr,
 	NULL,
 };
@@ -187,19 +188,34 @@ static int lm_pmu_dt(struct sbp_priv *priv)
 
 	priv->gpio_dcin_valid = of_get_named_gpio_flags(np, "dcin-gpio", 0, &flag);
 	if (gpio_is_valid(priv->gpio_dcin_valid)) {
-		if (devm_gpio_request_one(dev, priv->gpio_dcin_valid,
-				flag == OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
-						"dcin-valid")) {
+		if (devm_gpio_request_one(dev, priv->gpio_dcin_valid, GPIOF_IN, "dcin-valid")) {
 			dev_err(dev, "%s: unable to request GPIO dcin-gpio [%d]\n", __func__, priv->gpio_dcin_valid);
 			return -EINVAL;
 		}
-		priv->gpio_dcin_valid_active_low = flag == OF_GPIO_ACTIVE_LOW;
+		priv->gpio_dcin_valid_active_low = flag & OF_GPIO_ACTIVE_LOW;
 	}
 	else {
 		dev_err(dev, "%s: Invalid GPIO dcin-gpio [%d]\n", __func__, priv->gpio_dcin_valid);
 		return -EINVAL;
 	}
 
+	/* Charge gpio */
+	priv->gpio_bat_ce[0] = priv->gpio_bat_ce[1] = -1;
+	num_gpio = of_gpio_named_count(np, "bat-ce-gpios");
+	if (num_gpio > 2)
+		num_gpio = 2;
+	for (n=0; n < num_gpio; n++) {
+		priv->gpio_bat_ce[n] = of_get_named_gpio_flags(np, "bat-ce-gpios", n, &flag);
+		priv->gpio_bat_ce_active_low[n] = flag & OF_GPIO_ACTIVE_LOW;
+		if (!gpio_is_valid(priv->gpio_bat_ce[n]) ||
+			devm_gpio_request_one(dev, priv->gpio_bat_ce[n],
+					priv->gpio_bat_ce_active_low[n] ? GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH,
+							bat_ce_names[n])) {
+			dev_err(dev, "Unable to get %s gpio\n", bat_ce_names[n]);
+			return -EINVAL;
+		}
+		priv->bat_ce[0] = priv->bat_ce[1] = true;
+	}
 	/* Startup codes */
 	priv->gpio_startup_code[0] = priv->gpio_startup_code[1] = -1;
 	num_gpio = of_gpio_named_count(np, "startup-gpios");
@@ -227,6 +243,8 @@ static int simpad_plus_psy_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 
+	priv->pdev = pdev;
+	platform_set_drvdata(pdev, priv);
 
 	ret = lm_pmu_dt(priv);
 	if (ret < 0) {
@@ -240,14 +258,11 @@ static int simpad_plus_psy_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	priv->pdev = pdev;
 	priv->ps_dcin->name = "DCIN";
 	priv->ps_dcin->type = POWER_SUPPLY_TYPE_MAINS;
 	priv->ps_dcin->get_property = lm_pmu_mains_get_property;
 	priv->ps_dcin->num_properties = ARRAY_SIZE(dcin_props_lb);
 	priv->ps_dcin->properties = dcin_props_lb;
-
-	platform_set_drvdata(pdev, priv);
 
 
 	ret = power_supply_register(&pdev->dev, priv->ps_dcin);

@@ -99,14 +99,7 @@
             regulator-always-on;
         };
 */  
-        reg_usb_h1_vbus: usb_h1_vbus {
-            compatible = "regulator-fixed";
-            regulator-name = "usb_h1_vbus";
-            regulator-min-microvolt = <5000000>;
-            regulator-max-microvolt = <5000000>;
-            gpio = <&gpio4 15 GPIO_ACTIVE_HIGH>;
-            enable-active-high;
-        };
+
     };
 
     pwm-manikin@0 {
@@ -222,12 +215,6 @@
             value = <0>;
         };
         
-        gpio-pmu02 {
-            gpios = <&gpio5 17 GPIO_ACTIVE_LOW>;
-            status = "okay";
-            value = <0>;
-        };
-        
     };
     
     
@@ -304,9 +291,9 @@
     };
     
     linkbox-plus-psy {
-		status = "disabled";		
+		status = "okay";		
        	compatible = "datarespons,linkbox-plus-psy";
-       	valid-gpios = <&gpio5 13 GPIO_ACTIVE_HIGH &gpio5 14 GPIO_ACTIVE_LOW &gpio5 15 GPIO_ACTIVE_LOW>;
+       	valid-gpios = <&gpio5 13 GPIO_ACTIVE_LOW &gpio5 14 GPIO_ACTIVE_LOW &gpio5 15 GPIO_ACTIVE_LOW>;
        	startup-gpios = <&gpio5 16 GPIO_ACTIVE_HIGH &gpio5 17 GPIO_ACTIVE_HIGH>;
        	manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
        	manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;
@@ -315,7 +302,8 @@
        	bat-ce-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH &gpio4 23 GPIO_ACTIVE_HIGH>;
        	spksd-gpio = <&gpio4 25 GPIO_ACTIVE_LOW>;
        	amp-shutdown-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;
-       	i2c-adapter = &i2c2;
+       	clr-status-gpio = <&gpio4 15 GPIO_ACTIVE_HIGH>;
+       	i2c-adapter = <&i2c2>;
        	ina219-dcin-addr = <0x40>;
        	ina219-manikin-addr = <0x41>;
     };
@@ -390,7 +378,7 @@
 
 &gpc {
     fsl,ldo-bypass = <0>; /* use ldo-bypass, u-boot will check it and configure */
-    fsl,wdog-reset = <2>; /* watchdog select of reset source */
+    fsl,wdog-reset = <1>; /* watchdog select of reset source */
 };
 
 &wdog1 {
@@ -587,7 +575,7 @@
     };
     
 	main_rtc: rtc-m41t82@0x68 {
-		compatible = "ds,mt41t82";
+		compatible = "ds,m41t82";
 		reg = <0x68>;
 	};
 
@@ -604,6 +592,7 @@
                 MX6QDL_PAD_KEY_COL1__GPIO4_IO08     0x80000000      /* AUX_12V_EN (manikin) */
                 MX6QDL_PAD_KEY_ROW1__GPIO4_IO09     0x80000000      /* AUX_5V_EN (manikin) */
                 MX6QDL_PAD_KEY_ROW2__GPIO4_IO11     0x80000000      /* VCC_5V_EN (system 5v) */
+                MX6QDL_PAD_KEY_ROW4__GPIO4_IO15     0x00002051      /* CLR_STATUS */
                 MX6QDL_PAD_GPIO_0__CCM_CLKO1        0x130b0         /* External audio clk */
                 MX6QDL_PAD_GPIO_1__WDOG2_B          0x80000000
                 MX6QDL_PAD_GPIO_5__GPIO1_IO05       0x80000000      /* SPK_SD_N */
@@ -622,12 +611,12 @@
                 MX6QDL_PAD_EIM_A25__GPIO5_IO02      0x0001b000      /* Recovery_setting (control boot) */
                 MX6QDL_PAD_EIM_D20__GPIO3_IO20      0x80000000      /* GP--nWP--flash (SPI flash WP) */
                 MX6QDL_PAD_EIM_D21__GPIO3_IO21      0x80000000      /* CAN_EN */
-                MX6QDL_PAD_EIM_D22__GPIO3_IO22      0x80000000		/* UV2 */
+                MX6QDL_PAD_EIM_D22__GPIO3_IO22      0x00002071		/* UV2 */
                 MX6QDL_PAD_EIM_D26__GPIO3_IO26      0x80000000      /* GP--WL_BAT_PWR_EN */
                 MX6QDL_PAD_EIM_D27__GPIO3_IO27      0x0001b000      /* HW_Setting_0 */
                 MX6QDL_PAD_EIM_D28__GPIO3_IO28      0x0001b000      /* HW_Setting_1 */
                 MX6QDL_PAD_EIM_D29__GPIO3_IO29      0x0001b000      /* PPWR_BTN_SNS */
-                MX6QDL_PAD_EIM_D31__GPIO3_IO31      0x0001b000      /* UV3 */
+                MX6QDL_PAD_EIM_D31__GPIO3_IO31      0x00002071      /* UV3 */
                 MX6QDL_PAD_SD1_CMD__GPIO1_IO18      0x80000000      /* LED_R_Status--CPU */
                 MX6QDL_PAD_SD1_CLK__GPIO1_IO20      0x80000000      /* LED_G_Status--CPU */
                 MX6QDL_PAD_SD1_DAT0__GPIO1_IO16     0x80000000      /* LED_B_Status--CPU */
@@ -927,7 +916,7 @@
 };
 
 &usbh1 {
-    vbus-supply = <&reg_usb_h1_vbus>;
+    vbus-supply = <&swbst_reg>;
     status = "okay";
 };
 
