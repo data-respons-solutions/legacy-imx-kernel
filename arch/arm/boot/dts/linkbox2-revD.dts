@@ -143,6 +143,11 @@
             gpios = <&gpio3 28 GPIO_ACTIVE_HIGH>;
             status = "okay";
         };
+        
+        gpio-hw-setting2 {
+            gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;
+            status = "okay";
+        };
 
         gpio-ddr-setting {
             gpios = <&gpio4 21 GPIO_ACTIVE_HIGH>;
@@ -261,11 +266,9 @@
         audio-routing =
             "Headphone Jack", "HP_L",
             "Headphone Jack", "HP_R",
-            "Ext Spk", "SPK_LP",
-            "Ext Spk", "SPK_LN",
-            "MICB", "AMIC",
-            "RINPUT1", "AMIC",
+            "Ext Spk", "OUT3",
             "LINPUT1", "AMIC";
+        ncpins = "SPK_RP", "SPK_RN", "SPK_LP", "SPK_LN";
         mux-int-port = <2>;
         mux-ext-port = <3>;
         hp-det-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
@@ -293,7 +296,7 @@
     linkbox-plus-psy {
 		status = "okay";		
        	compatible = "datarespons,linkbox-plus-psy";
-       	valid-gpios = <&gpio5 13 GPIO_ACTIVE_LOW &gpio5 14 GPIO_ACTIVE_LOW &gpio5 15 GPIO_ACTIVE_LOW>;
+       	valid-gpios = <&gpio5 13 GPIO_ACTIVE_HIGH &gpio5 14 GPIO_ACTIVE_LOW &gpio5 15 GPIO_ACTIVE_LOW>;
        	startup-gpios = <&gpio5 16 GPIO_ACTIVE_HIGH &gpio5 17 GPIO_ACTIVE_HIGH>;
        	manikin-5v-gpio = <&gpio4 9 GPIO_ACTIVE_HIGH>;
        	manikin-12v-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH &gpio4 8 GPIO_ACTIVE_HIGH>;

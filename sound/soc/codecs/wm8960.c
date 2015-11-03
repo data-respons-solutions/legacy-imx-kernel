@@ -28,9 +28,7 @@
 
 #include "wm8960.h"
 
-/* R25 - Power 1 */
-#define WM8960_VMID_MASK 0x180
-#define WM8960_VREF      0x40
+
 
 /* R26 - Power 2 */
 #define WM8960_PWR2_LOUT1	0x40
@@ -701,6 +699,7 @@ static int wm8960_set_bias_level_out3(struct snd_soc_codec *codec,
 	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
 	int ret;
 
+	dev_dbg(codec->dev, "%s: bias from %d -> %d\n", __func__, codec->dapm.bias_level, level);
 	switch (level) {
 	case SND_SOC_BIAS_ON:
 		break;
@@ -743,7 +742,7 @@ static int wm8960_set_bias_level_out3(struct snd_soc_codec *codec,
 				      WM8960_BUFDCOPEN | WM8960_BUFIOEN);
 
 			/* Enable & ramp VMID at 2x50k */
-			snd_soc_update_bits(codec, WM8960_POWER1, 0x80, 0x80);
+			snd_soc_update_bits(codec, WM8960_POWER1, 0x180, 0x80);
 			msleep(100);
 
 			/* Enable VREF */

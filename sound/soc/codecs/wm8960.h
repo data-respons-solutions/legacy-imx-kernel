@@ -67,6 +67,11 @@
 #define WM8960_PLL3		0x36
 #define WM8960_PLL4		0x37
 
+/* R25 - Power 1 */
+#define WM8960_VMID_MASK 0x180
+#define WM8960_VREF      0x40
+#define WM8960_MICB_MASK 0x02
+#define WM8960_BIAS_MASK (WM8960_VMID_MASK | WM8960_VREF | WM8960_MICB_MASK)
 
 /*
  * WM8960 Clock dividers
