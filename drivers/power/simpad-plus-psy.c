@@ -148,10 +148,12 @@ static ssize_t lm_pmu_set_bat_ce(struct device *dev,
 	bool enable = buf[0] == '1' ? 1 : 0;
 	if (strcmp(attr->attr.name, "bat_charge_en") == 0) {
 		set_val(priv->gpio_bat_ce[0], priv->gpio_bat_ce_active_low[0], enable);
+		priv->bat_ce[0] = enable;
 		return count;
 	}
 	else if (strcmp(attr->attr.name, "bat_high_current") == 0) {
 		set_val(priv->gpio_bat_ce[1], priv->gpio_bat_ce_active_low[1], enable);
+		priv->bat_ce[1] = enable;
 		return count;
 	}
 
