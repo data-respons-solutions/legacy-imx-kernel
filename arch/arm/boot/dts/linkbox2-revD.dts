@@ -184,6 +184,12 @@
             value = <1>;
         };
         
+        gpio-wifi-clk-req {
+        	gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
+        	status = "okay";
+        	bidir;
+        };
+        
         gpio-wlan-host-wake {
             gpios = <&gpio2 6 GPIO_ACTIVE_HIGH>;
             status = "okay";
@@ -505,7 +511,7 @@
 };
 
 &i2c1 {
-    clock-frequency = <100000>;
+    clock-frequency = <400000>;
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_i2c1>;
     status = "okay";
