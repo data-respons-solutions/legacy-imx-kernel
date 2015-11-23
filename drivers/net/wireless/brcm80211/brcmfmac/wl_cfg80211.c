@@ -18,6 +18,7 @@
 
 #include <linux/kernel.h>
 #include <linux/etherdevice.h>
+#include <linux/module.h>
 #include <net/cfg80211.h>
 #include <net/netlink.h>
 
@@ -32,6 +33,12 @@
 #include "btcoex.h"
 #include "wl_cfg80211.h"
 #include "fwil.h"
+
+
+static int disable_powersave;
+module_param(disable_powersave, int, S_IRUSR);
+MODULE_PARM_DESC(disable_powersave, "disable power managment for cfg80211");
+
 
 #define BRCMF_SCAN_IE_LEN_MAX		2048
 #define BRCMF_PNO_VERSION		2
@@ -2255,7 +2262,7 @@ brcmf_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 		goto done;
 	}
 
-	pm = enabled ? PM_FAST : PM_OFF;
+	pm = (enabled && disable_powersave == 0) ? PM_FAST : PM_OFF;
 	/* Do not enable the power save after assoc if it is a p2p interface */
 	if (ifp->vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT) {
 		brcmf_dbg(INFO, "Do not enable power save for P2P clients\n");
@@ -5378,7 +5385,7 @@ static s32 brcmf_config_dongle(struct brcmf_cfg80211_info *cfg)
 	brcmf_dongle_scantime(ifp, WL_SCAN_CHANNEL_TIME,
 			      WL_SCAN_UNASSOC_TIME, WL_SCAN_PASSIVE_TIME);
 
-	power_mode = cfg->pwr_save ? PM_FAST : PM_OFF;
+	power_mode = (cfg->pwr_save && disable_powersave == 0) ? PM_FAST : PM_OFF;
 	err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_PM, power_mode);
 	if (err)
 		goto default_conf_out;
