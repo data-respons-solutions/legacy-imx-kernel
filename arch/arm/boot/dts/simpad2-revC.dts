@@ -239,7 +239,7 @@
         status-green {
             gpios = <&gpio1 20 GPIO_ACTIVE_LOW>;
             default-state = "on";
-            linux,default-trigger = "heartbeat";
+            linux,default-trigger = "timer";
         };
         
         status-blue {
