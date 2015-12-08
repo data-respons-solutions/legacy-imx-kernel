@@ -83,7 +83,8 @@ static int imx_pcm1681_hw_param(struct snd_pcm_substream *substream,
 	u32 width = snd_pcm_format_width(params_format(params));
 	unsigned int clock_freq=0;
 	u32 codec_dai_format = SND_SOC_DAIFMT_LEFT_J | SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS;
-	snd_soc_dai_set_sysclk(cpu_dai, 0, data->pll_freq, SND_SOC_CLOCK_IN);
+	snd_soc_dai_set_sysclk(cpu_dai, ESAI_HCKT_EXTAL, data->pll_freq, SND_SOC_CLOCK_IN);
+	snd_soc_dai_set_sysclk(codec_dai, 0, data->pll_freq, SND_SOC_CLOCK_IN);
 	ret = snd_soc_dai_set_fmt(codec_dai, codec_dai_format);
 	if (ret) {
 		dev_err(rtd->dev, "failed to set codec dai fmt: %d\n", ret);
