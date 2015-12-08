@@ -1011,3 +1011,8 @@
 &ipu1 {
     status = "disabled";
 };
+
+&gpu {
+	status = "disabled";
+};
+
