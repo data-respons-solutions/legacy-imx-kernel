@@ -83,6 +83,8 @@ static char *startup_code_text[4] = {
 	"unknown"
 };
 
+typedef enum _amp_state { AMP_OFF, AMP_ON, AMP_AUTO, AMP_INVALID } ampState;
+
 static struct of_device_id linkbox_plus_psy_dt_ids[] = {
 	{ .compatible = "datarespons,linkbox-plus-psy",  .data = 0, },
 	{}
@@ -140,6 +142,8 @@ struct lbp_priv {
 	int gpio_clr_status;
 	bool gpio_clr_status_active_low;
 	struct notifier_block ps_dcin_nb;
+	ampState amp5w_state;
+	ampState amp1w_state;
 
 };
 
@@ -352,16 +356,17 @@ static int lm_pmu_manikin_12v_set_property(struct power_supply *psy,
 			gpio_set_value(priv->gpio_12v_manikin[0], priv->gpio_12v_manikin_active_low[0] ? 0 : 1);
 			msleep(2);
 			gpio_set_value(priv->gpio_12v_manikin[1], priv->gpio_12v_manikin_active_low[1] ? 0 : 1);
-			msleep(10);
-			gpio_set_value(priv->gpio_5w_sd, priv->gpio_5w_sd_active_low ? 1 : 0);
-			msleep(5);
-			gpio_set_value(priv->gpio_spkr_sd, priv->gpio_spkr_sd_active_low ? 1 : 0);
+			if (priv->amp5w_state == AMP_AUTO) {
+				msleep(10);
+				gpio_set_value(priv->gpio_5w_sd, priv->gpio_5w_sd_active_low ? 1 : 0);
+			}
 		}
 		else  {
+			if (priv->amp5w_state == AMP_AUTO)
+				gpio_set_value(priv->gpio_5w_sd, priv->gpio_5w_sd_active_low ? 0 : 1);
 			gpio_set_value(priv->gpio_12v_manikin[1], priv->gpio_12v_manikin_active_low[1] ? 1 : 0);
 			gpio_set_value(priv->gpio_12v_manikin[0], priv->gpio_12v_manikin_active_low[0] ? 1 : 0);
-			gpio_set_value(priv->gpio_5w_sd, priv->gpio_5w_sd_active_low ? 0 : 1);
-			gpio_set_value(priv->gpio_spkr_sd, priv->gpio_spkr_sd_active_low ? 0 : 1);
+
 		}
 		priv->manikin_12v_power_on = val->intval ? true : false;
 		power_supply_changed(psy);
@@ -379,12 +384,24 @@ static int lm_pmu_manikin_5v_set_property(struct power_supply *psy,
 			    const union power_supply_propval *val)
 {
 	struct lbp_priv *priv = dev_get_drvdata(psy->dev->parent);
-	int gpioval = priv->gpio_5v_manikin_active_low ? (val->intval ? 0 : 1) : (val->intval ? 1 : 0);
-	switch (psp)
+	priv->manikin_5v_power_on = val->intval ? true : false;
+	switch(psp)
 	{
 	case POWER_SUPPLY_PROP_ONLINE:
-		gpio_set_value(priv->gpio_5v_manikin, gpioval);
-		priv->manikin_5v_power_on = val->intval ? true : false;
+		if (val->intval) {
+			gpio_set_value(priv->gpio_5v_manikin, priv->gpio_5v_manikin_active_low ? 0 : 1);
+			if (priv->amp1w_state == AMP_AUTO) {
+				msleep(5);
+				gpio_set_value(priv->gpio_spkr_sd, priv->gpio_spkr_sd_active_low ? 1 : 0);
+			}
+
+		}
+		else {
+			if (priv->amp1w_state == AMP_AUTO)
+				gpio_set_value(priv->gpio_spkr_sd, priv->gpio_spkr_sd_active_low ? 0 : 1);
+			gpio_set_value(priv->gpio_5v_manikin, priv->gpio_5v_manikin_active_low ? 1 : 0);
+			priv->manikin_5v_power_on = val->intval ? true : false;
+		}
 		power_supply_changed(psy);
 		break;
 
@@ -533,6 +550,80 @@ static ssize_t lm_pmu_set_bat_ce(struct device *dev,
 	return -EINVAL;
 }
 
+static ampState lm_pmu_get_ampstate(const char *buf, size_t count)
+{
+	if (strncmp(buf, "auto", 4) == 0)
+		return AMP_AUTO;
+	if (strncmp(buf, "on", 2) == 0)
+			return AMP_ON;
+	if (strncmp(buf, "off", 3) == 0)
+			return AMP_OFF;
+	return AMP_INVALID;
+}
+
+static ssize_t lm_pmu_show_amps(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct lbp_priv *priv = dev_get_drvdata(dev->parent);
+	ampState s;
+	if (strcmp(attr->attr.name, "amp5w_enable") == 0) {
+		s = priv->amp5w_state;
+	}
+	else if (strcmp(attr->attr.name, "amp1w_enable") == 0) {
+		s = priv->amp1w_state;
+	}
+	else
+		return -EINVAL;
+
+	switch (s)
+	{
+	case AMP_OFF:
+		return sprintf(buf, "off\n");
+		break;
+
+	case AMP_ON:
+		return sprintf(buf, "on\n");
+		break;
+
+	case AMP_AUTO:
+		return sprintf(buf, "auto\n");
+		break;
+
+	default:
+		return sprintf(buf, "invalid\n");
+		break;
+	}
+
+}
+
+static ssize_t lm_pmu_set_amps(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	struct lbp_priv *priv = dev_get_drvdata(dev->parent);
+	ampState s = lm_pmu_get_ampstate(buf, count);
+	int enable;
+	if (s == AMP_INVALID)
+		return -EINVAL;
+
+	if (strcmp(attr->attr.name, "amp5w_enable") == 0) {
+		enable = (s == AMP_ON || (s == AMP_AUTO && priv->manikin_12v_power_on)) ? 0 : 1;
+		set_val(priv->gpio_5w_sd, priv->gpio_5w_sd_active_low, enable);
+		priv->amp5w_state = s;
+		return count;
+	}
+	else if (strcmp(attr->attr.name, "amp1w_enable") == 0) {
+		enable = (s == AMP_ON || (s == AMP_AUTO && priv->manikin_5v_power_on)) ? 0 : 1;
+		set_val(priv->gpio_spkr_sd, priv->gpio_spkr_sd_active_low, enable);
+		priv->amp1w_state = s;
+		return count;
+	}
+
+	return -EINVAL;
+}
+
+
 
 static DEVICE_ATTR(bat_det1, S_IRUGO, lm_pmu_show_bat_det, NULL);
 static DEVICE_ATTR(bat_det2, S_IRUGO, lm_pmu_show_bat_det, NULL);
@@ -543,6 +634,7 @@ static DEVICE_ATTR(bat_valid2, S_IRUGO, lm_pmu_show_bat_det, NULL);
 static DEVICE_ATTR(bat_ce1, 0644, lm_pmu_show_bat_ce, lm_pmu_set_bat_ce);
 static DEVICE_ATTR(bat_ce2, 0644, lm_pmu_show_bat_ce, lm_pmu_set_bat_ce);
 static DEVICE_ATTR(startup_code, S_IRUGO, lm_pmu_show_startup, NULL);
+
 
 static struct attribute *bat_sysfs_attr[] = {
 	&dev_attr_bat_det1.attr,
@@ -561,6 +653,8 @@ static const struct attribute_group bat_sysfs_attr_group = {
 	.attrs = bat_sysfs_attr,
 };
 
+static DEVICE_ATTR(amp5w_enable, 0644, lm_pmu_show_amps, lm_pmu_set_amps);
+static DEVICE_ATTR(amp1w_enable, 0644, lm_pmu_show_amps, lm_pmu_set_amps);
 
 /**********************************************************************
  *  Parse DT
@@ -820,6 +914,8 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 	/* Power supplies */
 	priv->manikin_12v_power_on = false;
 	priv->manikin_5v_power_on = false;
+	priv->amp1w_state = AMP_AUTO;
+	priv->amp5w_state = AMP_AUTO;
 
 	priv->ps_dcin = devm_kzalloc(&pdev->dev, sizeof(struct power_supply), GFP_KERNEL);
 	if (!priv->ps_dcin) {
@@ -865,7 +961,8 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register MANIKIN 12V PS\n");
 	}
-
+	if (sysfs_create_file(&priv->ps_manikin[0]->dev->kobj, &dev_attr_amp5w_enable.attr) < 0)
+		dev_err(&pdev->dev, "Unable to create attribute file for amp5w\n");
 	priv->ps_manikin[1]->name = "MANIKIN_5V";
 	priv->ps_manikin[1]->type = POWER_SUPPLY_TYPE_UNKNOWN;
 	priv->ps_manikin[1]->get_property = lm_pmu_manikin_5v_get_property;
@@ -879,7 +976,8 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register MANIKIN 5V PS\n");
 	}
-
+	if (sysfs_create_file(&priv->ps_manikin[1]->dev->kobj, &dev_attr_amp1w_enable.attr) < 0)
+		dev_err(&pdev->dev, "Unable to create attribute file for amp1w\n");
 	return 0;
 
 cleanup:
@@ -890,6 +988,8 @@ static int lm_pmu_lb_remove(struct platform_device *pdev)
 {
 	struct lbp_priv *priv = platform_get_drvdata(pdev);
 	sysfs_remove_group(&priv->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
+	sysfs_remove_file(&priv->ps_manikin[0]->dev->kobj, &dev_attr_amp5w_enable.attr);
+	sysfs_remove_file(&priv->ps_manikin[1]->dev->kobj, &dev_attr_amp1w_enable.attr);
 	put_device(&priv->i2c_adapter->dev);
 	return 0;
 }
