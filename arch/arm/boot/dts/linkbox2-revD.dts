@@ -575,6 +575,7 @@
             silabs,pll-master;
             clock-frequency = <8192000>;
         };
+        
     };
 
     codec_pcm1681: pcm1681@4c {

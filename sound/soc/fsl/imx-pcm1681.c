@@ -246,7 +246,7 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 
 	of_property_read_u32(pdev->dev.of_node, "hfclk-freq", &data->pll_freq);
 	dev_info(&pdev->dev, "%s: PLL (HFTXC) = %d\n", __func__, data->pll_freq);
-	clk_set_rate(data->input_clk, data->pll_freq);
+	/* clk_set_rate(data->input_clk, data->pll_freq); */
 
 	sd_gpios = of_gpio_named_count(pdev->dev.of_node, "amp-shutdown-gpios");
 	for (n=0; n < sd_gpios; n++) {
