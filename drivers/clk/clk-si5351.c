@@ -15,7 +15,6 @@
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
  */
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/clkdev.h>
@@ -30,7 +29,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-#include <asm/div64.h>
+#include <linux/math64.h>
 
 #include "clk-si5351.h"
 
@@ -423,19 +422,23 @@ static unsigned long si5351_pll_recalc_rate(struct clk_hw *hw,
 	u8 reg = (hwdata->num == 0) ? SI5351_PLLA_PARAMETERS :
 		SI5351_PLLB_PARAMETERS;
 	unsigned long long rate;
-
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER, HW[%d] valid = %d\n", __func__,
+			hwdata->num, hwdata->params.valid);
 	if (!hwdata->params.valid)
 		si5351_read_parameters(hwdata->drvdata, reg, &hwdata->params);
 
-	if (hwdata->params.p3 == 0)
+	if (hwdata->params.p3 == 0) {
+		dev_dbg(&hwdata->drvdata->client->dev, "%s: EXIT due to p3=0\n", __func__);
 		return parent_rate;
+	}
 
 	/* fVCO = fIN * (P1*P3 + 512*P3 + P2)/(128*P3) */
 	rate  = hwdata->params.p1 * hwdata->params.p3;
 	rate += 512 * hwdata->params.p3;
 	rate += hwdata->params.p2;
 	rate *= parent_rate;
-	do_div(rate, 128 * hwdata->params.p3);
+	rate = div_u64(rate, 128 * hwdata->params.p3);
+	/* do_div(rate, 128 * hwdata->params.p3); */
 
 	dev_dbg(&hwdata->drvdata->client->dev,
 		"%s - %s: p1 = %lu, p2 = %lu, p3 = %lu, parent_rate = %lu, rate = %lu\n",
@@ -454,6 +457,9 @@ static long si5351_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long rfrac, denom, a, b, c;
 	unsigned long long lltmp;
 
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER prate=%ld, rate=%ld\n",
+				__func__, *parent_rate, rate);
+
 	if (rate < SI5351_PLL_VCO_MIN)
 		rate = SI5351_PLL_VCO_MIN;
 	if (rate > SI5351_PLL_VCO_MAX)
@@ -471,7 +477,8 @@ static long si5351_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	denom = 1000 * 1000;
 	lltmp = rate % (*parent_rate);
 	lltmp *= denom;
-	do_div(lltmp, *parent_rate);
+	lltmp = div_u64(lltmp, *parent_rate);
+	/* do_div(lltmp, *parent_rate); */
 	rfrac = (unsigned long)lltmp;
 
 	b = 0;
@@ -490,7 +497,8 @@ static long si5351_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	/* recalculate rate by fIN * (a + b/c) */
 	lltmp  = *parent_rate;
 	lltmp *= b;
-	do_div(lltmp, c);
+	lltmp = div_u64(lltmp, c);
+	/* do_div(lltmp, c); */
 
 	rate  = (unsigned long)lltmp;
 	rate += *parent_rate * a;
@@ -510,7 +518,7 @@ static int si5351_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		container_of(hw, struct si5351_hw_data, hw);
 	u8 reg = (hwdata->num == 0) ? SI5351_PLLA_PARAMETERS :
 		SI5351_PLLB_PARAMETERS;
-
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER\n", __func__);
 	/* write multisynth parameters */
 	si5351_write_parameters(hwdata->drvdata, reg, &hwdata->params);
 
@@ -602,7 +610,7 @@ static unsigned long si5351_msynth_recalc_rate(struct clk_hw *hw,
 	u8 reg = si5351_msynth_params_address(hwdata->num);
 	unsigned long long rate;
 	unsigned long m;
-
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER\n", __func__);
 	if (!hwdata->params.valid)
 		si5351_read_parameters(hwdata->drvdata, reg, &hwdata->params);
 
@@ -628,7 +636,9 @@ static unsigned long si5351_msynth_recalc_rate(struct clk_hw *hw,
 
 	if (m == 0)
 		return 0;
-	do_div(rate, m);
+
+	rate = div_u64(rate, m);
+	/* do_div(rate, m); */
 
 	dev_dbg(&hwdata->drvdata->client->dev,
 		"%s - %s: p1 = %lu, p2 = %lu, p3 = %lu, m = %lu, parent_rate = %lu, rate = %lu\n",
@@ -647,7 +657,9 @@ static long si5351_msynth_round_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long long lltmp;
 	unsigned long a, b, c;
 	int divby4;
-
+	volatile unsigned long parent_rate_out = *parent_rate;
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER prate=%ld, rate=%ld\n",
+				__func__, *parent_rate, rate);
 	/* multisync6-7 can only handle freqencies < 150MHz */
 	if (hwdata->num >= 6 && rate > SI5351_MULTISYNTH67_MAX_FREQ)
 		rate = SI5351_MULTISYNTH67_MAX_FREQ;
@@ -668,17 +680,15 @@ static long si5351_msynth_round_rate(struct clk_hw *hw, unsigned long rate,
 		 * find largest integer divider for max
 		 * vco frequency and given target rate
 		 */
-		if (divby4 == 0) {
-			lltmp = SI5351_PLL_VCO_MAX;
-			do_div(lltmp, rate);
-			a = (unsigned long)lltmp;
-		} else
+		if (divby4 == 0)
+			a = SI5351_PLL_VCO_MAX/rate;
+		else
 			a = 4;
 
 		b = 0;
 		c = 1;
 
-		*parent_rate = a * rate;
+		parent_rate_out = a * rate;
 	} else {
 		unsigned long rfrac, denom;
 
@@ -701,7 +711,8 @@ static long si5351_msynth_round_rate(struct clk_hw *hw, unsigned long rate,
 		denom = 1000 * 1000;
 		lltmp = (*parent_rate) % rate;
 		lltmp *= denom;
-		do_div(lltmp, rate);
+		lltmp = div_u64(lltmp, rate);
+		/* do_div(lltmp, rate); */
 		rfrac = (unsigned long)lltmp;
 
 		b = 0;
@@ -715,7 +726,8 @@ static long si5351_msynth_round_rate(struct clk_hw *hw, unsigned long rate,
 	/* recalculate rate by fOUT = fIN / (a + b/c) */
 	lltmp  = *parent_rate;
 	lltmp *= c;
-	do_div(lltmp, a * c + b);
+	lltmp = div_u64(lltmp, a*c + b);
+	/*do_div(lltmp, a * c + b); */
 	rate  = (unsigned long)lltmp;
 
 	/* calculate parameters */
@@ -730,6 +742,7 @@ static long si5351_msynth_round_rate(struct clk_hw *hw, unsigned long rate,
 		hwdata->params.p1 += (128 * b / c);
 		hwdata->params.p1 -= 512;
 	}
+	*parent_rate = parent_rate_out;
 
 	dev_dbg(&hwdata->drvdata->client->dev,
 		"%s - %s: a = %lu, b = %lu, c = %lu, divby4 = %d, parent_rate = %lu, rate = %lu\n",
@@ -746,7 +759,7 @@ static int si5351_msynth_set_rate(struct clk_hw *hw, unsigned long rate,
 		container_of(hw, struct si5351_hw_data, hw);
 	u8 reg = si5351_msynth_params_address(hwdata->num);
 	int divby4 = 0;
-
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER\n", __func__);
 	/* write multisynth parameters */
 	si5351_write_parameters(hwdata->drvdata, reg, &hwdata->params);
 
@@ -966,7 +979,7 @@ static unsigned long si5351_clkout_recalc_rate(struct clk_hw *hw,
 		container_of(hw, struct si5351_hw_data, hw);
 	unsigned char reg;
 	unsigned char rdiv;
-
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER\n", __func__);
 	if (hwdata->num <= 5)
 		reg = si5351_msynth_params_address(hwdata->num) + 2;
 	else
@@ -979,7 +992,9 @@ static unsigned long si5351_clkout_recalc_rate(struct clk_hw *hw,
 		rdiv &= SI5351_OUTPUT_CLK_DIV_MASK;
 		rdiv >>= SI5351_OUTPUT_CLK_DIV_SHIFT;
 	}
-
+	dev_dbg(&hwdata->drvdata->client->dev,
+			"%s - %s: rdiv = %u, parent_rate = %lu\n",
+			__func__, __clk_get_name(hwdata->hw.clk), 1 << rdiv, parent_rate);
 	return parent_rate >> rdiv;
 }
 
@@ -989,7 +1004,8 @@ static long si5351_clkout_round_rate(struct clk_hw *hw, unsigned long rate,
 	struct si5351_hw_data *hwdata =
 		container_of(hw, struct si5351_hw_data, hw);
 	unsigned char rdiv;
-
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER prate=%ld, rate=%ld\n",
+			__func__, *parent_rate, rate);
 	/* clkout6/7 can only handle output freqencies < 150MHz */
 	if (hwdata->num >= 6 && rate > SI5351_CLKOUT67_MAX_FREQ)
 		rate = SI5351_CLKOUT67_MAX_FREQ;
@@ -1043,7 +1059,7 @@ static int si5351_clkout_set_rate(struct clk_hw *hw, unsigned long rate,
 		container_of(hw, struct si5351_hw_data, hw);
 	unsigned long new_rate, new_err, err;
 	unsigned char rdiv;
-
+	dev_dbg(&hwdata->drvdata->client->dev, "%s: ENTER\n", __func__);
 	/* round to closed rdiv */
 	rdiv = SI5351_OUTPUT_CLK_DIV_1;
 	new_rate = parent_rate;
