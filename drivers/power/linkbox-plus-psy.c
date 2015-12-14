@@ -12,7 +12,7 @@
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
-
+#include <linux/slab.h>
 #include <linux/platform_data/ina2xx.h>
 
 /* common register definitions */
@@ -126,6 +126,7 @@ struct lbp_priv {
 	int gpio_bat_det[2];
 	bool gpio_bat_det_active_low[2];
 	int battery_detect_irqs[2];
+	int current_bat_det_irq;
 	int gpio_bat_disable[2];
 	bool gpio_bat_disable_active_low[2];
 	bool bat_disable[2];
@@ -144,6 +145,7 @@ struct lbp_priv {
 	struct notifier_block ps_dcin_nb;
 	ampState amp5w_state;
 	ampState amp1w_state;
+	struct delayed_work bat_work;
 
 };
 
@@ -656,6 +658,51 @@ static const struct attribute_group bat_sysfs_attr_group = {
 static DEVICE_ATTR(amp5w_enable, 0644, lm_pmu_show_amps, lm_pmu_set_amps);
 static DEVICE_ATTR(amp1w_enable, 0644, lm_pmu_show_amps, lm_pmu_set_amps);
 
+
+static irqreturn_t bat_det_handler(int irq, void *_ptr)
+{
+	struct lbp_priv *priv = _ptr;
+	priv->current_bat_det_irq = irq;
+	if (!delayed_work_pending(&priv->bat_work))
+		schedule_delayed_work(&priv->bat_work, msecs_to_jiffies(100));
+	return IRQ_HANDLED;
+}
+
+static int lm_pmu_setup_irq(struct lbp_priv *priv)
+{
+	int n;
+	for(n=0; n < 2; n++)
+		if (gpio_is_valid(priv->gpio_bat_det[n])) {
+			priv->battery_detect_irqs[n] = gpio_to_irq(priv->gpio_bat_det[n]);
+			if ( devm_request_irq(&priv->pdev->dev, priv->battery_detect_irqs[n],
+					bat_det_handler, IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+					"linkbox-plus-psy", priv ) < 0) {
+				dev_err(&priv->pdev->dev, "Failed to get irq for gpio %d\n", priv->gpio_bat_det[n]);
+			}
+		}
+	return 0;
+}
+
+static void bat_worker(struct work_struct *ws)
+{
+	struct lbp_priv *priv = container_of(ws, struct lbp_priv, bat_work.work);
+	char *envp[4];
+	int bat_changed = priv->current_bat_det_irq == priv->battery_detect_irqs[0] ? 0 : 1;
+	char *buf = kzalloc(128, GFP_ATOMIC);
+	envp[0] = "NAME=LB_BAT_DETECT";
+	envp[1] = buf;
+	envp[2] = &buf[64];
+	envp[3] = NULL;
+
+	sprintf(envp[1], "NUMBER=%d", bat_changed);
+	sprintf(envp[2], "STATE=%s", is_set(priv->gpio_bat_det[bat_changed],
+			priv->gpio_bat_det_active_low[bat_changed]) ?
+			"CONNECTED" : "DISCONNECTED");
+	kobject_uevent_env(&priv->pdev->dev.kobj, KOBJ_CHANGE, envp);
+	kfree(buf);
+	priv->current_bat_det_irq = 0;
+}
+
 /**********************************************************************
  *  Parse DT
  */
@@ -978,7 +1025,9 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 	}
 	if (sysfs_create_file(&priv->ps_manikin[1]->dev->kobj, &dev_attr_amp1w_enable.attr) < 0)
 		dev_err(&pdev->dev, "Unable to create attribute file for amp1w\n");
-	return 0;
+
+	INIT_DELAYED_WORK(&priv->bat_work, bat_worker);
+	return lm_pmu_setup_irq(priv);
 
 cleanup:
 	return ret;
