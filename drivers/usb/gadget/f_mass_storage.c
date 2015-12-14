@@ -348,7 +348,7 @@ static const char *vendor_name = "Laerdal";
 #else
 static const bool cache_off = false;
 static const char *gadget_name = "File-Stor Gadget";
-static const char *vendor_name = "Linux"
+static const char *vendor_name = "Linux";
 #endif
 
 #ifdef CONFIG_FSL_UTP
