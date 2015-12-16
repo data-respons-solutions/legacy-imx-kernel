@@ -532,7 +532,7 @@
                 MX6QDL_PAD_KEY_COL4__GPIO4_IO14     0x1b0b1         /* GP--Charger_nCE */
                 MX6QDL_PAD_GPIO_0__CCM_CLKO1        0x130b0         /* External audio clk */
                 MX6QDL_PAD_GPIO_1__WDOG2_B          0x80000000
-                MX6QDL_PAD_GPIO_6__GPIO1_IO06       0x00010000		/* Mic detect */
+                MX6QDL_PAD_GPIO_6__GPIO1_IO06       0x0001b040		/* Mic detect */
                 MX6QDL_PAD_GPIO_7__GPIO1_IO07       0x80000000      /* LCD flip H */
                 MX6QDL_PAD_GPIO_8__GPIO1_IO08       0x80000000      /* LCD flip V */
                 MX6QDL_PAD_GPIO_9__GPIO1_IO09       0x00010000      /* GP--HP_DET, pullup */
