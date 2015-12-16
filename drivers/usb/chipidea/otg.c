@@ -115,7 +115,8 @@ void ci_handle_vbus_change(struct ci_hdrc *ci)
 		usb_gadget_vbus_disconnect(&ci->gadget);
 		sprintf(buf, "STATE=VBUS_OFF");
 	}
-	ret = kobject_uevent_env(&ci->dev->kobj, KOBJ_CHANGE, envp);
+	if (ci_otg_role(ci) == CI_ROLE_GADGET)
+		ret = kobject_uevent_env(&ci->dev->kobj, KOBJ_CHANGE, envp);
 	dev_dbg(ci->dev, "%s, kevent status is %d\n", __func__, ret);
 	kfree(buf);
 }
