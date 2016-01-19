@@ -128,6 +128,9 @@ struct wm8960_priv {
 	int bclk;
 	int sysclk;
 	struct wm8960_data pdata;
+	unsigned int last_pll_in;
+	unsigned int last_pll_out;
+	bool stream_active[2];
 };
 
 #define wm8960_reset(c)	regmap_write(c, WM8960_RESET, 0)
@@ -577,8 +580,8 @@ static void wm8960_configure_clocking(struct snd_soc_codec *codec,
 		int stream, int lrclk)
 {
 	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
+	struct wm8960_data *pdata = &wm8960->pdata;
 	u16 iface1 = snd_soc_read(codec, WM8960_IFACE1);
-	u16 iface2 = snd_soc_read(codec, WM8960_IFACE2);
 	int i, j;
 
 	if (!(iface1 & (1<<6))) {
@@ -608,20 +611,25 @@ static void wm8960_configure_clocking(struct snd_soc_codec *codec,
 		}
 	}
 
-	dev_err(codec->dev, "Unsupported sysclk %d\n", wm8960->sysclk);
+
+	dev_err(codec->dev, "Unsupported sysclk %d for bclk %d\n", wm8960->sysclk, wm8960->bclk);
 	return;
 
 config_clock:
 	/* configure frame clock. If ADCLRC configure as GPIO pin, DACLRC
 	 * pin is used as a frame clock for ADCs and DACs.
 	 */
-	if (iface2 & (1<<6))
+	dev_dbg(codec->dev, " lrclk=%d, bclk=%d, i=%d, j=%d\n", lrclk, wm8960->bclk, i, j);
+	if (pdata->shared_lrclk) {
 		snd_soc_update_bits(codec, WM8960_CLOCK1, 0x7 << 3, i << 3);
-	else if (SNDRV_PCM_STREAM_PLAYBACK == stream)
-		snd_soc_update_bits(codec, WM8960_CLOCK1, 0x7 << 3, i << 3);
-	else if (SNDRV_PCM_STREAM_CAPTURE == stream)
 		snd_soc_update_bits(codec, WM8960_CLOCK1, 0x7 << 6, i << 6);
-
+	}
+	else {
+		if (SNDRV_PCM_STREAM_PLAYBACK == stream)
+			snd_soc_update_bits(codec, WM8960_CLOCK1, 0x7 << 3, i << 3);
+		else
+			snd_soc_update_bits(codec, WM8960_CLOCK1, 0x7 << 6, i << 6);
+	}
 	/* configure bit clock */
 	snd_soc_update_bits(codec, WM8960_CLOCK2, 0xf, j);
 }
@@ -634,6 +642,16 @@ static int wm8960_hw_params(struct snd_pcm_substream *substream,
 	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
 	u16 iface = snd_soc_read(codec, WM8960_IFACE1) & 0xfff3;
 	int i;
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	dev_dbg(codec->dev, "DIR=%s, ch=%d, rate=%d, width=%d, bclk=%d\n",
+			tx ? "tx" : "rx", params_channels(params),
+					params_rate(params), params_width(params), snd_soc_params_to_bclk(params) );
+
+	wm8960->stream_active[tx] = true;
+	if (wm8960->stream_active[!tx]) {
+		dev_dbg(codec->dev, "A stream is already present, can not configure clocks or interfaces\n");
+		return 0;
+	}
 
 	wm8960->bclk = snd_soc_params_to_bclk(params);
 	if (params_channels(params) == 1)
@@ -947,14 +965,20 @@ static int wm8960_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 		int source, unsigned int freq_in, unsigned int freq_out)
 {
 	struct snd_soc_codec *codec = codec_dai->codec;
+	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
 	u16 reg;
 	static struct _pll_div pll_div;
 	int ret;
 
 	if (freq_in && freq_out) {
+		if (wm8960->last_pll_in == freq_in && wm8960->last_pll_out == freq_out)
+			return 0;
+
 		ret = pll_factors(freq_in, freq_out, &pll_div);
 		if (ret != 0)
 			return ret;
+		wm8960->last_pll_in = freq_in;
+		wm8960->last_pll_out = freq_out;
 	}
 
 	/* Disable the PLL: even if we are changing the frequency the
@@ -978,9 +1002,10 @@ static int wm8960_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	}
 	snd_soc_write(codec, WM8960_PLL1, reg);
 
+
 	/* Turn it on */
 	snd_soc_update_bits(codec, WM8960_POWER2, 0x1, 0x1);
-	msleep(250);
+	msleep(10);
 	snd_soc_update_bits(codec, WM8960_CLOCK1, 0x1, 0x1);
 
 	return 0;
@@ -1052,6 +1077,14 @@ static int wm8960_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 	return 0;
 }
 
+void wm8960_shutdown(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	wm8960->stream_active[tx] = false;
+}
+
 #define WM8960_RATES SNDRV_PCM_RATE_8000_48000
 
 #define WM8960_FORMATS \
@@ -1065,6 +1098,7 @@ static const struct snd_soc_dai_ops wm8960_dai_ops = {
 	.set_clkdiv = wm8960_set_dai_clkdiv,
 	.set_pll = wm8960_set_dai_pll,
 	.set_sysclk = wm8960_set_dai_sysclk,
+	.shutdown = wm8960_shutdown,
 };
 
 static struct snd_soc_dai_driver wm8960_dai = {

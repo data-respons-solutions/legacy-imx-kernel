@@ -25,7 +25,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/i2c.h>
@@ -53,6 +52,7 @@ struct imx_wm8960_data {
 	char platform_name[DAI_NAME_SIZE];
 	unsigned int clk_frequency;
 	struct clk *codec_clk;
+	bool stream_active[2];
 };
 
 struct imx_priv {
@@ -277,11 +277,18 @@ static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 	struct imx_wm8960_data *data = snd_soc_card_get_drvdata(card);
 	unsigned int sample_rate = params_rate(params);
 	int width = snd_pcm_format_width(params_format(params));
-	u32 dai_format;
 	int ret = 0;
 	int n;
 	int sel_bclk = width <= 16 ? 0 : 2;
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	data->clk_frequency = clk_get_rate(data->codec_clk);
+
+	data->stream_active[tx] = true;
+	dev_dbg(dev, "%s: [%s]\n", __func__, tx ? "tx" : "rx");
+	if (data->stream_active[!tx]) {
+		dev_dbg(dev, "A stream [%s] is already present, can not configure clocks\n", tx ? "rx" : "tx");
+		return 0;
+	}
 
 	for (n=0; n < ARRAY_SIZE(wm8960_clocksetup); n++) {
 		if (sample_rate == wm8960_clocksetup[n].rate) {
@@ -295,41 +302,29 @@ static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	dev_dbg(dev, "%s: codec_clk=%d, rate=%d, pll=%d, sys_div=%d, dac_div=%d, bclk_div=%d\n",
+	dev_dbg(dev, "%s: codec_clk=%d, ch=%d, rate=%d, pll=%d, sys_div=%d, dac_div=%d, bclk_div=%d\n",
 			__func__,
 			data->clk_frequency,
+			params_channels(params),
 			wm8960_clocksetup[n].rate,
 			wm8960_clocksetup[n].pll_freq,
 			wm8960_clocksetup[n].sys_clk_div,
 			wm8960_clocksetup[n].dac_div,
 			wm8960_clocksetup[n].bclk_div[sel_bclk]);
-	dai_format = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-		SND_SOC_DAIFMT_CBM_CFM;
 
-	/* set codec DAI configuration */
-	ret = snd_soc_dai_set_fmt(codec_dai, dai_format);
-	if (ret) {
-		dev_err(dev, "failed to set codec dai fmt: %d\n", ret);
-		return ret;
-	}
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_IN);
 
-	dev_dbg(dev, "%s: Setting codec PLL freq to %d, clk_freq = %d\n", __func__, wm8960_clocksetup[n].pll_freq, data->clk_frequency);
+	snd_soc_dai_set_clkdiv(codec_dai, WM8960_SYSCLKDIV, wm8960_clocksetup[n].sys_clk_div);
 	ret = snd_soc_dai_set_pll(codec_dai, WM8960_PLL1, WM8960_PLL1,
 			data->clk_frequency, wm8960_clocksetup[n].pll_freq);
 	if (ret) {
 		dev_err(dev, "failed to set PLL: %d\n", ret);
 		return ret;
 	}
-	snd_soc_dai_set_clkdiv(codec_dai, WM8960_SYSCLKDIV, wm8960_clocksetup[n].sys_clk_div);
-	snd_soc_dai_set_clkdiv(codec_dai, WM8960_DACDIV, wm8960_clocksetup[n].dac_div);
-	snd_soc_dai_set_clkdiv(codec_dai, WM8960_BCLKDIV, wm8960_clocksetup[n].bclk_div[sel_bclk]);
-	snd_soc_dai_set_clkdiv(codec_dai, WM8960_DCLKDIV, wm8960_clocksetup[n].dclk_div);
+	ret = snd_soc_dai_set_sysclk(codec_dai, WM8960_SYSCLK_PLL,
+			wm8960_clocksetup[n].pll_freq/wm8960_clocksetup[n].sys_clk_div,
+			0);
 
-	ret = snd_soc_dai_set_fmt(cpu_dai, dai_format);
-	if (ret) {
-		dev_err(dev, "failed to set cpu dai fmt: %d\n", ret);
-		return ret;
-	}
 	return 0;
 }
 
@@ -339,9 +334,11 @@ static int imx_hifi_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = codec_dai->codec->card;
 	struct imx_wm8960_data *data = snd_soc_card_get_drvdata(card);
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	int ret = clk_prepare_enable(data->codec_clk);
 	if (ret)
 		dev_err(card->dev, "Failed to enable MCLK: %d\n", ret);
+	dev_dbg(card->dev, "%s: [%s]\n", __func__, tx ? "tx" : "rx");
 	return ret;
 }
 
@@ -351,6 +348,9 @@ static void imx_hifi_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = codec_dai->codec->card;
 	struct imx_wm8960_data *data = snd_soc_card_get_drvdata(card);
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	dev_dbg(card->dev, "%s: [%s]\n", __func__, tx ? "tx" : "rx");
+	data->stream_active[tx] = false;
 	clk_disable_unprepare(data->codec_clk);
 }
 
@@ -456,6 +456,9 @@ static int imx_wm8960_late_probe(struct snd_soc_card *card)
 
 	/* Use 0.9 factor on MIC BIAS voltage */
 	snd_soc_update_bits(codec_dai->codec, WM8960_ADDCTL4, 0x1, 0x0);
+	snd_soc_dai_set_clkdiv(codec_dai, WM8960_DCLKDIV, 7);
+	/* Use MONO mixer */
+	snd_soc_update_bits(codec_dai->codec, WM8960_ADDCTL1, 0x10, 0x10);
 	clk_disable_unprepare(data->codec_clk);
 	return 0;
 }
@@ -590,6 +593,9 @@ audmux_bypass:
 	data->dai.ops = &imx_hifi_ops;
 	data->dai.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 			    SND_SOC_DAIFMT_CBM_CFM;
+	data->dai.symmetric_channels = 1;
+	data->dai.symmetric_rates = 1;
+	data->dai.symmetric_samplebits = 1;
 
 	data->card.dev = &pdev->dev;
 	data->card.late_probe = imx_wm8960_late_probe;
