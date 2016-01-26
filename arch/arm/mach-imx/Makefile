@@ -105,6 +105,8 @@ AFLAGS_smp_wfe_imx6.o :=-Wa,-march=armv7-a
 AFLAGS_lpddr2_freq_imx6q.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX6Q) += clk-imx6q.o mach-imx6q.o ddr3_freq_imx6.o \
 			smp_wfe_imx6.o lpddr2_freq_imx6q.o
+obj-$(CONFIG_DR_IMX6) += mach-laerdal2.o
+
 AFLAGS_lpddr2_freq_imx6.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX6SL) += clk-imx6sl.o mach-imx6sl.o lpddr2_freq_imx6.o
 AFLAGS_ddr3_freq_imx6sx.o :=-Wa,-march=armv7-a
