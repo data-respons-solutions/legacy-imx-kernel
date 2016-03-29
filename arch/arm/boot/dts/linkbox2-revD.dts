@@ -333,6 +333,7 @@
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_ecspi1>;
     status = "okay";
+    nodma;
 
     flash: m25p80@0 {
         #address-cells = <1>;
