@@ -83,7 +83,7 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
-	struct sbp_priv *priv = dev_get_drvdata(psy->dev->parent);
+	struct sbp_priv *priv = power_supply_get_drvdata(psy);
 
 	switch (psp)
 	{
@@ -104,8 +104,8 @@ static int lm_pmu_notifier_call(struct notifier_block *nb,
 {
 	struct power_supply *psy = v;
 
-	if (strncmp(psy->name, "ds2781-battery", 14) == 0) {
-		pr_info( "Found %s to %d\n", psy->name, (int)val);
+	if (strncmp(psy->desc->name, "ds2781-battery", 14) == 0) {
+		pr_info( "Found %s to %d\n", psy->desc->name, (int)val);
 
 	}
 	return 0;
@@ -240,11 +240,18 @@ static int simpad_plus_psy_probe(struct platform_device *pdev)
 {
 	struct sbp_priv *priv;
 	int ret=0;
+	struct power_supply_desc *psy_desc_dcin;
+	struct power_supply_config psy_cfg = {};
+
+	psy_desc_dcin = devm_kzalloc(&pdev->dev, sizeof(*psy_desc_dcin), GFP_KERNEL);
+	if (!psy_desc_dcin)
+		return -ENOMEM;
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
+	psy_cfg.drv_data = priv;
 	priv->pdev = pdev;
 	platform_set_drvdata(pdev, priv);
 
@@ -254,27 +261,21 @@ static int simpad_plus_psy_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	priv->ps_dcin = devm_kzalloc(&pdev->dev, sizeof(struct power_supply), GFP_KERNEL);
-	if (!priv->ps_dcin) {
-		ret = -ENOMEM;
-		goto cleanup;
-	}
-
-	priv->ps_dcin->name = "DCIN";
-	priv->ps_dcin->type = POWER_SUPPLY_TYPE_MAINS;
-	priv->ps_dcin->get_property = lm_pmu_mains_get_property;
-	priv->ps_dcin->num_properties = ARRAY_SIZE(dcin_props_lb);
-	priv->ps_dcin->properties = dcin_props_lb;
+	psy_desc_dcin->name = "DCIN";
+	psy_desc_dcin->type = POWER_SUPPLY_TYPE_MAINS;
+	psy_desc_dcin->get_property = lm_pmu_mains_get_property;
+	psy_desc_dcin->num_properties = ARRAY_SIZE(dcin_props_lb);
+	psy_desc_dcin->properties = dcin_props_lb;
 
 
-	ret = power_supply_register(&pdev->dev, priv->ps_dcin);
-	if (ret < 0) {
+	priv->ps_dcin = power_supply_register_no_ws(&pdev->dev, psy_desc_dcin, &psy_cfg);
+	if (IS_ERR(priv->ps_dcin)) {
 		dev_err(&pdev->dev, "Unable to register MAINS PS\n");
 	}
 	else {
 		priv->ps_dcin_nb.notifier_call = lm_pmu_notifier_call;
 		power_supply_reg_notifier(&priv->ps_dcin_nb);
-		ret = sysfs_create_group(&priv->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
+		ret = sysfs_create_group(&priv->ps_dcin->dev.kobj, &bat_sysfs_attr_group);
 	}
 
 	return 0;
@@ -286,7 +287,7 @@ cleanup:
 static int lm_pmu_sp_remove(struct platform_device *pdev)
 {
 	struct sbp_priv *priv = platform_get_drvdata(pdev);
-	sysfs_remove_group(&priv->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
+	sysfs_remove_group(&priv->ps_dcin->dev.kobj, &bat_sysfs_attr_group);
 	return 0;
 }
 

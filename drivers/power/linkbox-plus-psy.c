@@ -245,7 +245,7 @@ static int lm_pmu_mains_get_property(struct power_supply *psy,
 		union power_supply_propval *val)
 {
 	int status;
-	struct lbp_priv *priv = dev_get_drvdata(psy->dev->parent);
+	struct lbp_priv *priv = power_supply_get_drvdata(psy);
 	int valids = get_valids(priv);
 	status = ina2xx_update_device(priv);
 	if (status < 0)
@@ -281,7 +281,7 @@ static int lm_pmu_manikin_12v_get_property(struct power_supply *psy,
 		union power_supply_propval *val)
 {
 	int status;
-	struct lbp_priv *priv = dev_get_drvdata(psy->dev->parent);
+	struct lbp_priv *priv = power_supply_get_drvdata(psy);
 	status = ina2xx_update_device(priv);
 	if (status < 0)
 		return status;
@@ -315,7 +315,7 @@ static int lm_pmu_manikin_5v_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
-	struct lbp_priv *priv = dev_get_drvdata(psy->dev->parent);
+	struct lbp_priv *priv = power_supply_get_drvdata(psy);
 
 	switch (psp)
 	{
@@ -349,7 +349,7 @@ static int lm_pmu_manikin_12v_set_property(struct power_supply *psy,
 			    enum power_supply_property psp,
 			    const union power_supply_propval *val)
 {
-	struct lbp_priv *priv = dev_get_drvdata(psy->dev->parent);
+	struct lbp_priv *priv = power_supply_get_drvdata(psy);
 
 	switch (psp)
 	{
@@ -385,7 +385,7 @@ static int lm_pmu_manikin_5v_set_property(struct power_supply *psy,
 			    enum power_supply_property psp,
 			    const union power_supply_propval *val)
 {
-	struct lbp_priv *priv = dev_get_drvdata(psy->dev->parent);
+	struct lbp_priv *priv = power_supply_get_drvdata(psy);
 	priv->manikin_5v_power_on = val->intval ? true : false;
 	switch(psp)
 	{
@@ -419,8 +419,8 @@ static int lm_pmu_notifier_call(struct notifier_block *nb,
 {
 	struct power_supply *psy = v;
 
-	if (strncmp(psy->name, "ds2781-battery", 14) == 0) {
-		pr_info( "Found %s to %d\n", psy->name, (int)val);
+	if (strncmp(psy->desc->name, "ds2781-battery", 14) == 0) {
+		pr_info( "Found %s to %d\n", psy->desc->name, (int)val);
 
 	}
 	return 0;
@@ -913,11 +913,25 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 {
 	struct lbp_priv *priv;
 	int ret=0;
+	struct power_supply_desc *psy_desc_dcin;
+	struct power_supply_desc *psy_desc_manikin[2];
+	struct power_supply_config psy_cfg = {};
+
+	psy_desc_dcin = devm_kzalloc(&pdev->dev, sizeof(*psy_desc_dcin), GFP_KERNEL);
+	if (!psy_desc_dcin)
+		return -ENOMEM;
+
+	psy_desc_manikin[0] = devm_kzalloc(&pdev->dev, sizeof(struct power_supply_desc), GFP_KERNEL);
+	psy_desc_manikin[1] = devm_kzalloc(&pdev->dev, sizeof(struct power_supply_desc), GFP_KERNEL);
+	if (!psy_desc_manikin[0] || !psy_desc_manikin[1])
+		return -ENOMEM;
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
+
+	psy_cfg.drv_data = priv;
 
 	priv->pdev = pdev;
 	platform_set_drvdata(pdev, priv);
@@ -964,66 +978,53 @@ static int linkbox_plus_psy_probe(struct platform_device *pdev)
 	priv->amp1w_state = AMP_AUTO;
 	priv->amp5w_state = AMP_AUTO;
 
-	priv->ps_dcin = devm_kzalloc(&pdev->dev, sizeof(struct power_supply), GFP_KERNEL);
-	if (!priv->ps_dcin) {
-		ret = -ENOMEM;
-		goto cleanup;
-	}
-
-	priv->ps_dcin->name = "DCIN";
-	priv->ps_dcin->type = POWER_SUPPLY_TYPE_MAINS;
-	priv->ps_dcin->get_property = lm_pmu_mains_get_property;
-	priv->ps_dcin->num_properties = ARRAY_SIZE(dcin_props_lb);
-	priv->ps_dcin->properties = dcin_props_lb;
+	psy_desc_dcin->name = "DCIN";
+	psy_desc_dcin->type = POWER_SUPPLY_TYPE_MAINS;
+	psy_desc_dcin->get_property = lm_pmu_mains_get_property;
+	psy_desc_dcin->num_properties = ARRAY_SIZE(dcin_props_lb);
+	psy_desc_dcin->properties = dcin_props_lb;
 
 	platform_set_drvdata(pdev, priv);
 
 
-	ret = power_supply_register(&pdev->dev, priv->ps_dcin);
-	if (ret < 0) {
+	priv->ps_dcin = power_supply_register_no_ws(&pdev->dev, psy_desc_dcin, &psy_cfg);
+	if (IS_ERR(priv->ps_dcin)) {
 		dev_err(&pdev->dev, "Unable to register MAINS PS\n");
 	}
 	else {
 		priv->ps_dcin_nb.notifier_call = lm_pmu_notifier_call;
 		power_supply_reg_notifier(&priv->ps_dcin_nb);
-		ret = sysfs_create_group(&priv->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
+		ret = sysfs_create_group(&priv->ps_dcin->dev.kobj, &bat_sysfs_attr_group);
 	}
 
+	psy_desc_manikin[0]->name = "MANIKIN_12V";
+	psy_desc_manikin[0]->type = POWER_SUPPLY_TYPE_UNKNOWN;
+	psy_desc_manikin[0]->get_property = lm_pmu_manikin_12v_get_property;
+	psy_desc_manikin[0]->set_property = lm_pmu_manikin_12v_set_property;
+	psy_desc_manikin[0]->num_properties = ARRAY_SIZE(manikin_12v_props);
+	psy_desc_manikin[0]->properties = manikin_12v_props;
+	psy_desc_manikin[0]->property_is_writeable = lm_pmu_manikin_prop_is_writable;
 
-	priv->ps_manikin[0]= devm_kzalloc(&pdev->dev, sizeof(struct power_supply), GFP_KERNEL);
-	priv->ps_manikin[1]= devm_kzalloc(&pdev->dev, sizeof(struct power_supply), GFP_KERNEL);
-	if (priv->ps_manikin[0] == 0 || priv->ps_manikin[1] == 0) {
-		ret = -ENOMEM;
-		goto cleanup;
-	}
-	priv->ps_manikin[0]->name = "MANIKIN_12V";
-	priv->ps_manikin[0]->type = POWER_SUPPLY_TYPE_UNKNOWN;
-	priv->ps_manikin[0]->get_property = lm_pmu_manikin_12v_get_property;
-	priv->ps_manikin[0]->set_property = lm_pmu_manikin_12v_set_property;
-	priv->ps_manikin[0]->num_properties = ARRAY_SIZE(manikin_12v_props);
-	priv->ps_manikin[0]->properties = manikin_12v_props;
-	priv->ps_manikin[0]->property_is_writeable = lm_pmu_manikin_prop_is_writable;
-
-	ret = power_supply_register(&pdev->dev, priv->ps_manikin[0]);
-	if (ret < 0) {
+	priv->ps_manikin[0]= power_supply_register_no_ws(&pdev->dev, psy_desc_manikin[0], &psy_cfg);
+	if (IS_ERR(priv->ps_manikin[0])) {
 		dev_err(&pdev->dev, "Unable to register MANIKIN 12V PS\n");
 	}
-	if (sysfs_create_file(&priv->ps_manikin[0]->dev->kobj, &dev_attr_amp5w_enable.attr) < 0)
+	if (sysfs_create_file(&priv->ps_manikin[0]->dev.kobj, &dev_attr_amp5w_enable.attr) < 0)
 		dev_err(&pdev->dev, "Unable to create attribute file for amp5w\n");
-	priv->ps_manikin[1]->name = "MANIKIN_5V";
-	priv->ps_manikin[1]->type = POWER_SUPPLY_TYPE_UNKNOWN;
-	priv->ps_manikin[1]->get_property = lm_pmu_manikin_5v_get_property;
-	priv->ps_manikin[1]->set_property = lm_pmu_manikin_5v_set_property;
-	priv->ps_manikin[1]->num_properties = ARRAY_SIZE(manikin_5v_props);
-	priv->ps_manikin[1]->properties = manikin_5v_props;
+	psy_desc_manikin[1]->name = "MANIKIN_5V";
+	psy_desc_manikin[1]->type = POWER_SUPPLY_TYPE_UNKNOWN;
+	psy_desc_manikin[1]->get_property = lm_pmu_manikin_5v_get_property;
+	psy_desc_manikin[1]->set_property = lm_pmu_manikin_5v_set_property;
+	psy_desc_manikin[1]->num_properties = ARRAY_SIZE(manikin_5v_props);
+	psy_desc_manikin[1]->properties = manikin_5v_props;
 	if (gpio_is_valid(priv->gpio_5v_manikin))
-		priv->ps_manikin[1]->property_is_writeable = lm_pmu_manikin_prop_is_writable;
+		psy_desc_manikin[1]->property_is_writeable = lm_pmu_manikin_prop_is_writable;
 
-	ret = power_supply_register(&pdev->dev, priv->ps_manikin[1]);
-	if (ret < 0) {
+	priv->ps_manikin[1]= power_supply_register_no_ws(&pdev->dev, psy_desc_manikin[1], &psy_cfg);
+	if (IS_ERR(priv->ps_manikin[1])) {
 		dev_err(&pdev->dev, "Unable to register MANIKIN 5V PS\n");
 	}
-	if (sysfs_create_file(&priv->ps_manikin[1]->dev->kobj, &dev_attr_amp1w_enable.attr) < 0)
+	if (sysfs_create_file(&priv->ps_manikin[1]->dev.kobj, &dev_attr_amp1w_enable.attr) < 0)
 		dev_err(&pdev->dev, "Unable to create attribute file for amp1w\n");
 
 	INIT_DELAYED_WORK(&priv->bat_work, bat_worker);
@@ -1036,9 +1037,9 @@ cleanup:
 static int lm_pmu_lb_remove(struct platform_device *pdev)
 {
 	struct lbp_priv *priv = platform_get_drvdata(pdev);
-	sysfs_remove_group(&priv->ps_dcin->dev->kobj, &bat_sysfs_attr_group);
-	sysfs_remove_file(&priv->ps_manikin[0]->dev->kobj, &dev_attr_amp5w_enable.attr);
-	sysfs_remove_file(&priv->ps_manikin[1]->dev->kobj, &dev_attr_amp1w_enable.attr);
+	sysfs_remove_group(&priv->ps_dcin->dev.kobj, &bat_sysfs_attr_group);
+	sysfs_remove_file(&priv->ps_manikin[0]->dev.kobj, &dev_attr_amp5w_enable.attr);
+	sysfs_remove_file(&priv->ps_manikin[1]->dev.kobj, &dev_attr_amp1w_enable.attr);
 	put_device(&priv->i2c_adapter->dev);
 	return 0;
 }
