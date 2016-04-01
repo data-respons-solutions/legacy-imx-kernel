@@ -1004,3 +1004,7 @@
 &ipu1 {
     status = "disabled";
 };
+
+&snvs_poweroff {
+	status = "okay";
+};

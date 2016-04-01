@@ -1036,3 +1036,7 @@
 	status = "disabled";
 };
 
+&snvs_poweroff {
+	status = "okay";
+};
+
