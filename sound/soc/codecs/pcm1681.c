@@ -30,7 +30,7 @@
 #include <sound/tlv.h>
 
 #define PCM1681_PCM_FORMATS (SNDRV_PCM_FMTBIT_S16_LE  |		\
-			     SNDRV_PCM_FMTBIT_S24_LE)
+			     SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
 #define PCM1681_PCM_RATES   (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 | \
 			     SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100  | \
@@ -86,9 +86,21 @@ struct pcm1681_private {
 	unsigned int deemph;
 	/* Current rate for deemphasis control */
 	unsigned int rate;
+	bool use_tdm;
 };
 
 static const int pcm1681_deemph[] = { 44100, 48000, 32000 };
+
+
+static int pcm1681_dai_set_tdm_slot(struct snd_soc_dai *dai,
+	unsigned int tx_mask, unsigned int rx_mask, int slots, int slot_width) {
+	struct snd_soc_codec *codec = dai->codec;
+	struct pcm1681_private *priv = snd_soc_codec_get_drvdata(codec);
+	if (slots == 8 && slot_width == 32) {
+		priv->use_tdm = true;
+	}
+	return 0;
+}
 
 static int pcm1681_set_deemph(struct snd_soc_codec *codec)
 {
@@ -172,31 +184,42 @@ static int pcm1681_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = dai->codec;
 	struct pcm1681_private *priv = snd_soc_codec_get_drvdata(codec);
 	int val = 0, ret;
+	int channels = params_channels(params);
 
-	priv->rate = params_rate(params);
+	if (priv->use_tdm && channels == 8 && (
+			params_format(params) == SNDRV_PCM_FORMAT_S24_LE ||
+			params_format(params) == SNDRV_PCM_FORMAT_S32_LE) ) {
+		val = 0x07;
+		dev_info(codec->dev, "%s: Using TDM\n", __func__);
+	}
+	else {
+		priv->use_tdm = false;
 
-	switch (priv->format & SND_SOC_DAIFMT_FORMAT_MASK) {
-	case SND_SOC_DAIFMT_RIGHT_J:
-		switch (params_width(params)) {
-		case 24:
-			val = 0;
+		priv->rate = params_rate(params);
+
+		switch (priv->format & SND_SOC_DAIFMT_FORMAT_MASK) {
+		case SND_SOC_DAIFMT_RIGHT_J:
+			switch (params_format(params)) {
+			case SNDRV_PCM_FORMAT_S24_LE:
+				val = 0;
+				break;
+			case SNDRV_PCM_FORMAT_S16_LE:
+				val = 3;
+				break;
+			default:
+				return -EINVAL;
+			}
 			break;
-		case 16:
-			val = 3;
+		case SND_SOC_DAIFMT_I2S:
+			val = 0x04;
+			break;
+		case SND_SOC_DAIFMT_LEFT_J:
+			val = 0x05;
 			break;
 		default:
+			dev_err(codec->dev, "Invalid DAI format\n");
 			return -EINVAL;
 		}
-		break;
-	case SND_SOC_DAIFMT_I2S:
-		val = 0x04;
-		break;
-	case SND_SOC_DAIFMT_LEFT_J:
-		val = 0x05;
-		break;
-	default:
-		dev_err(codec->dev, "Invalid DAI format\n");
-		return -EINVAL;
 	}
 
 	ret = regmap_update_bits(priv->regmap, PCM1681_FMT_CONTROL, 0x0f, val);
@@ -210,6 +233,7 @@ static const struct snd_soc_dai_ops pcm1681_dai_ops = {
 	.set_fmt	= pcm1681_set_dai_fmt,
 	.hw_params	= pcm1681_hw_params,
 	.digital_mute	= pcm1681_digital_mute,
+	.set_tdm_slot = pcm1681_dai_set_tdm_slot,
 };
 
 static const struct snd_soc_dapm_widget pcm1681_dapm_widgets[] = {
