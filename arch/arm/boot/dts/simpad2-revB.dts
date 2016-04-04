@@ -129,6 +129,7 @@
                               1600 1681 1764 1849 1936 2025 2116 2209 >;
         default-brightness-level = <32>;
         enable-gpios = <&gpio4 8 GPIO_ACTIVE_HIGH>;
+        status = "okay";
     };
 
     mxcfb1: fb@0 {
@@ -183,7 +184,7 @@
         gpio-bt-enable {
             gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
             status = "okay";
-            value = <0>;
+            value = <1>;
         };
         
         gpio-spinor-wp {
@@ -248,7 +249,7 @@
         status-green {
             gpios = <&gpio1 20 GPIO_ACTIVE_LOW>;
             default-state = "on";
-            linux,default-trigger = "heartbeat";
+            linux,default-trigger = "timer";
         };
         
         status-blue {
@@ -474,13 +475,13 @@
 };
 
 &i2c1 {
-    clock-frequency = <400000>;
+    clock-frequency = <100000>;
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_i2c1>;
     status = "okay";
     
     codec: wm8960@1a {
-        compatible = "wlf,wm8960";
+        compatible = "wlf,wm8960-lm";
         reg = <0x1a>;
         clocks = <&clks IMX6QDL_CLK_CKO>;
         clock-names = "mclk";
@@ -883,6 +884,7 @@
 &pwm1 {
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_pwm1>;
+    status = "okay";
 };
 
 &pwm2 {

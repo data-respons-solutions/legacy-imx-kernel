@@ -128,7 +128,9 @@
                               1024 1089 1156 1225 1296 1369 1444 1521
                               1600 1681 1764 1849 1936 2025 2116 2209 >;
         default-brightness-level = <32>;
+        power-supply = <&reg_5v>;
         enable-gpios = <&gpio4 8 GPIO_ACTIVE_HIGH>;
+        status = "okay";
     };
 
     mxcfb1: fb@0 {
@@ -471,7 +473,7 @@
     status = "okay";
     
     codec: wm8960@1a {
-        compatible = "wlf,wm8960";
+        compatible = "wlf,wm8960-lm";
         reg = <0x1a>;
         clocks = <&clks IMX6QDL_CLK_CKO>;
         clock-names = "mclk";
@@ -868,6 +870,7 @@
 &pwm1 {
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_pwm1>;
+    status = "okay";
 };
 
 &pwm2 {

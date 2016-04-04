@@ -519,7 +519,7 @@
     status = "okay";
     
     codec: wm8960@1a {
-        compatible = "wlf,wm8960";
+        compatible = "wlf,wm8960-lm";
         reg = <0x1a>;
         clocks = <&clks IMX6QDL_CLK_CKO>;
         clock-names = "mclk";
