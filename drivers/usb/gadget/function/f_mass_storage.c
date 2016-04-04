@@ -233,6 +233,16 @@ static const char fsg_string_interface[] = "Mass Storage";
 #include "storage_common.h"
 #include "f_mass_storage.h"
 
+ #ifdef CONFIG_USB_MASS_STORAGE_LAERDAL
+ static const bool cache_off = true;
+ static const char *gadget_name = "Simpad PLUS";
+ static const char *vendor_name = "Laerdal";
+ #else
+ static const bool cache_off = false;
+ static const char *gadget_name = "File-Stor Gadget";
+ static const char *vendor_name = "Linux";
+ #endif
+
 /* Static strings, in UTF-8 (for simplicity we use only ASCII characters) */
 static struct usb_string		fsg_strings[] = {
 	{FSG_STRING_INTERFACE,		fsg_string_interface},
@@ -3026,11 +3036,11 @@ void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
 	/* Prepare inquiryString */
 	i = get_default_bcdDevice();
 	snprintf(common->inquiry_string, sizeof(common->inquiry_string),
-		 "%-8s%-16s%04x", vn ?: "Linux",
+		 "%-8s%-16s%04x", vn ?: vendor_name,
 		 /* Assume product name dependent on the first LUN */
 		 pn ?: ((*common->luns)->cdrom
 		     ? "File-CD Gadget"
-		     : "File-Stor Gadget"),
+		     : gadget_name),
 		 i);
 }
 EXPORT_SYMBOL_GPL(fsg_common_set_inquiry_string);
