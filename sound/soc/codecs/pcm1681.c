@@ -190,7 +190,7 @@ static int pcm1681_hw_params(struct snd_pcm_substream *substream,
 			params_format(params) == SNDRV_PCM_FORMAT_S24_LE ||
 			params_format(params) == SNDRV_PCM_FORMAT_S32_LE) ) {
 		val = 0x07;
-		dev_info(codec->dev, "%s: Using TDM\n", __func__);
+		dev_dbg(codec->dev, "%s: Using TDM\n", __func__);
 	}
 	else {
 		priv->use_tdm = false;
