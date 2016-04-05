@@ -32,8 +32,9 @@
 
     clocks {
         /* 27MHz reference crystal */
-        audio_ref: oscillator {
+        audio_ref: clock@0 {
             compatible = "fixed-clock";
+            reg = <0>;
             #clock-cells = <0>;
             clock-frequency = <27000000>;
         };
@@ -559,6 +560,7 @@
     
         /* connect xtal input to 27MHz reference */
         clocks = <&audio_ref>;
+        clock-names = "xtal";
     
         /* connect xtal input as source of pll0 and pll1 */
         silabs,pll-source = <0 0>, <1 0>;
