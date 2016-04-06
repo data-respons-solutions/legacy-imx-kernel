@@ -145,9 +145,6 @@
         };
     };
 
-	
-
-
 	user-gpios {
 	
 		gpio-lan2-eewp {
@@ -204,6 +201,12 @@
             gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
             status = "okay";
         };
+        
+        gpio-lan2-off {
+        	gpios = <&gpio3 23 GPIO_ACTIVE_LOW>;
+        	value = <1>;
+        	status = "okay";
+        };
 		
 	};
 	
@@ -221,6 +224,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi1>;
 	status = "okay";
+	nodma;
 
 flash: m25p80@0 {
         #address-cells = <1>;
@@ -455,7 +459,6 @@ flash: m25p80@0 {
                 MX6QDL_PAD_EIM_CS1__GPIO2_IO24  0x80000000
                 MX6QDL_PAD_ENET_RXD0__GPIO1_IO27 0x80000000
                 MX6QDL_PAD_EIM_A25__GPIO5_IO02  0x80000000
-                MX6QDL_PAD_EIM_D23__GPIO3_IO23  0x80000000
                 MX6QDL_PAD_ENET_TXD1__GPIO1_IO29 0x80000000
                 MX6QDL_PAD_EIM_D28__GPIO3_IO28  0x80000000
                 MX6QDL_PAD_NANDF_CS0__GPIO6_IO11 0x80000000
@@ -470,7 +473,6 @@ flash: m25p80@0 {
                 MX6QDL_PAD_GPIO_2__GPIO1_IO02   0x80000000
                 MX6QDL_PAD_NANDF_RB0__GPIO6_IO10 0x80000000
                 MX6QDL_PAD_NANDF_WP_B__GPIO6_IO09 0x80000000
-                MX6QDL_PAD_GPIO_17__GPIO7_IO12  0x80000000
                 MX6QDL_PAD_CSI0_DATA_EN__GPIO5_IO20 0x80000000
                 MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25  0x80000000      /* Phy reset (low) */
                 MX6QDL_PAD_ENET_RXD1__GPIO1_IO26 0x80000000         /* Phy IRQ (low) */
@@ -482,6 +484,15 @@ flash: m25p80@0 {
         };
     };
 	
+	pcie {
+		pinctrl_pcie: pciegrp {
+			fsl,pins = <
+				MX6QDL_PAD_GPIO_17__GPIO7_IO12	0x1b0b0
+				MX6QDL_PAD_EIM_D23__GPIO3_IO23  0x1b0b0
+			>;
+		};
+	};
+		
 	ecspi1 {
 		pinctrl_ecspi1: ecspi1grp {
 			fsl,pins = <
@@ -638,7 +649,7 @@ flash: m25p80@0 {
 		};
 	};
 	
-	flexcan1 {
+	can1 {
         pinctrl_flexcan1: flexcan1grp {
             fsl,pins = <
                 MX6QDL_PAD_GPIO_8__FLEXCAN1_RX    0x80000000
@@ -647,7 +658,7 @@ flash: m25p80@0 {
         };
     };
     
-    flexcan2 {
+    can2 {
         pinctrl_flexcan2: flexcan2grp {
             fsl,pins = <
                 MX6QDL_PAD_KEY_COL4__FLEXCAN2_TX    0x80000000
@@ -708,8 +719,9 @@ flash: m25p80@0 {
 
 
 &pcie {
-    reset-gpio = <&gpio7 12 GPIO_ACTIVE_LOW>;
-    wake-up-gpio = <&gpio5 20 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcie>;
+    reset-gpio = <&gpio7 12 0>;
     status = "okay";
 };
 
@@ -739,8 +751,9 @@ flash: m25p80@0 {
 &usdhc3 {
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_usdhc3>;
-    cd-gpios = <&gpio2 0 0>;
-    wp-gpios = <&gpio2 1 0>;
+    cd-gpios = <&gpio2 0 GPIO_ACTIVE_LOW>;
+    wp-gpios = <&gpio2 1 GPIO_ACTIVE_HIGH>;
+    bus-width = <4>;
     no-1-8-v;
     keep-power-in-suspend;
     enable-sdio-wakeup;
@@ -748,13 +761,13 @@ flash: m25p80@0 {
 };
 
 &usdhc4 {
-        pinctrl-names = "default";
-        pinctrl-0 = <&pinctrl_usdhc4>;
-        bus-width = <8>;
-        non-removable;
-        no-1-8-v;
-        keep-power-in-suspend;
-        status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&pinctrl_usdhc4>;
+    bus-width = <8>;
+    non-removable;
+    no-1-8-v;
+    keep-power-in-suspend;
+    status = "okay";
 };
 
 &can1 {
@@ -781,3 +794,8 @@ flash: m25p80@0 {
 	fsl,ldb-di0-parent = <&clks IMX6QDL_CLK_PLL2_PFD0_352M>;
 	fsl,ldb-di1-parent = <&clks IMX6QDL_CLK_PLL2_PFD0_352M>;
 };
+
+&snvs_poweroff {
+	status = "okay";
+};
+
