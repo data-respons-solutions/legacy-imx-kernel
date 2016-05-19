@@ -184,7 +184,7 @@ static int ksz9031rn_phy_fixup(struct phy_device *dev)
 static int ar8031_phy_fixup(struct phy_device *dev)
 {
 	u16 val;
-
+	dev_info(&dev->dev, "%s\n", __func__);
 	/* Set RGMII IO voltage to 1.8V */
 	phy_write(dev, 0x1d, 0x1f);
 	phy_write(dev, 0x1e, 0x8);
@@ -536,9 +536,9 @@ static int __init imx6q_set_wdog_status(struct device_node *np, bool ok)
 	pr_debug("%s: %s to %d\n", __func__, of_node_full_name(np), ok);
 	if ( (avail && ok) || (!avail && !ok) )
 		return 0;
-	status = kzalloc(sizeof(*status)+20, GFP_KERNEL);
+	status = kzalloc(sizeof(*status), GFP_KERNEL);
 	status->name = kstrdup("status", GFP_KERNEL);
-	status->value = status + 1;
+	status->value = kzalloc(20, GFP_KERNEL);
 	if (ok)
 		strcpy(status->value, "okay");
 	else
