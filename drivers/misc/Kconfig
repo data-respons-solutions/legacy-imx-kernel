@@ -547,7 +547,12 @@ config MODULATED_PWM
 	help
 		Modulated PWM with 8 bit resolution
 
-
+config OF_FUNCTION_PINMUX
+	tristate "Function Pinmux"
+	default n
+	depends on OF && PINMUX && PINCTRL
+	help
+		Function multiplexer for pads
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
