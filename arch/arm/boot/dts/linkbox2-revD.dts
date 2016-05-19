@@ -319,6 +319,14 @@
        	ina219-dcin-addr = <0x40>;
        	ina219-manikin-addr = <0x41>;
     };
+    
+    can-uart-mux {
+    	pinctrl-names = "uart", "can";
+    	pinctrl-0 = <&pinctrl_uart2>;
+		pinctrl-1 = <&pinctrl_flexcan1>;
+    	status = "okay";
+    	compatible = "datarespons,function-mux";
+    };
 };
 
 &esai {
@@ -914,8 +922,6 @@
 };
 
 &uart2 {
-    pinctrl-names = "default";
-    pinctrl-0 = <&pinctrl_uart2>;
     status = "okay";
 };
 
@@ -1032,10 +1038,8 @@
 };
 
 &can1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_flexcan1>;
 	trx-en-gpio = <&gpio3 21 GPIO_ACTIVE_HIGH>;
-	status = "disabled";
+	status = "okay";
 };
 
 &snvs_poweroff {
