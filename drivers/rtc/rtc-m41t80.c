@@ -29,6 +29,8 @@
 #include <linux/reboot.h>
 #include <linux/watchdog.h>
 #endif
+#include <linux/delay.h>
+#include <linux/of.h>
 
 #define M41T80_REG_SSEC	0
 #define M41T80_REG_SEC	1
@@ -44,6 +46,7 @@
 #define M41T80_REG_ALARM_MIN	0xd
 #define M41T80_REG_ALARM_SEC	0xe
 #define M41T80_REG_FLAGS	0xf
+#define M41T80_REG_ACAL		0x12
 #define M41T80_REG_SQW	0x13
 
 #define M41T80_DATETIME_REG_SIZE	(M41T80_REG_YEAR + 1)
@@ -87,6 +90,7 @@ MODULE_DEVICE_TABLE(i2c, m41t80_id);
 struct m41t80_data {
 	u8 features;
 	struct rtc_device *rtc;
+	u8 acal;
 };
 
 static int m41t80_get_datetime(struct i2c_client *client,
@@ -624,6 +628,7 @@ static int m41t80_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	int rc = 0;
+	int sec;
 	struct rtc_device *rtc = NULL;
 	struct rtc_time tm;
 	struct m41t80_data *clientdata = NULL;
@@ -656,6 +661,15 @@ static int m41t80_probe(struct i2c_client *client,
 	}
 
 	clientdata->rtc = rtc;
+#ifdef CONFIG_OF
+	if ( client->dev.of_node ) {
+		rc = of_property_read_u8(client->dev.of_node, "xtal-cap", &clientdata->acal);
+		if (rc == 0) {
+			rc = i2c_smbus_write_byte_data(client, M41T80_REG_ACAL, clientdata->acal);
+			dev_info(&client->dev, "Setting ACAL to DT value %x\n", clientdata->acal);
+		}
+	}
+#endif
 
 	/* Make sure HT (Halt Update) bit is cleared */
 	rc = i2c_smbus_read_byte_data(client, M41T80_REG_ALARM_HOUR);
@@ -678,13 +692,25 @@ static int m41t80_probe(struct i2c_client *client,
 					      rc & ~M41T80_ALHOUR_HT) < 0)
 			goto ht_err;
 	}
+	/* Check for Oscillator failed */
+	sec = i2c_smbus_read_byte_data(client, M41T80_REG_SEC);
+	rc = i2c_smbus_read_byte_data(client, M41T80_REG_FLAGS);
+	if ( rc >= 0 && (rc & 0x04)) {
+		dev_warn(&client->dev, "OF bit was set, restarting after 4 secs\n");
+		i2c_smbus_write_byte_data(client, M41T80_REG_SEC, sec | M41T80_SEC_ST);
+		sec &= ~M41T80_SEC_ST;
+
+		i2c_smbus_write_byte_data(client, M41T80_REG_SEC, sec);
+		msleep_interruptible(4100);
+		i2c_smbus_write_byte_data(client, M41T80_REG_FLAGS, rc & ~0x04);
+
+	}
+
 
 	/* Make sure ST (stop) bit is cleared */
-	rc = i2c_smbus_read_byte_data(client, M41T80_REG_SEC);
-	if (rc < 0)
-		goto st_err;
 
-	if (rc & M41T80_SEC_ST) {
+	if (sec & M41T80_SEC_ST) {
+		dev_warn(&client->dev, "STOP bit was set [0x%x], clearing\n", rc);
 		if (i2c_smbus_write_byte_data(client, M41T80_REG_SEC,
 					      rc & ~M41T80_SEC_ST) < 0)
 			goto st_err;

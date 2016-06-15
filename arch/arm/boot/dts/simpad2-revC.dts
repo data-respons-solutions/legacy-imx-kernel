@@ -512,6 +512,7 @@
 	main_rtc: rtc-m41t82@0x68 {
 		compatible = "ds,m41t82";
 		reg = <0x68>;
+		xtal-cap = /bits/ 8 <0xc8>;		/* Fix for HW bug, turn off capacitance */
 	};
     
 };
