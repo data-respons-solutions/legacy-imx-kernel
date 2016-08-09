@@ -2543,7 +2543,15 @@ static s32 brcmf_inform_single_bss(struct brcmf_cfg80211_info *cfg,
 		band = wiphy->bands[IEEE80211_BAND_5GHZ];
 
 	freq = ieee80211_channel_to_frequency(channel, band->band);
+	if (freq == 0) {
+		wiphy_err(wiphy, "Channel %d is illegal\n", channel);
+		return -EINVAL;
+	}
 	notify_channel = ieee80211_get_channel(wiphy, freq);
+	if (notify_channel == NULL) {
+		brcmf_err("%s: No notify channel for %d(%d) MHz\n", __func__, channel, freq);
+		return -EINVAL;
+	}
 
 	notify_capability = le16_to_cpu(bi->capability);
 	notify_interval = le16_to_cpu(bi->beacon_period);
@@ -4916,6 +4924,8 @@ brcmf_notify_connect_status(struct brcmf_if *ifp,
 	struct brcmf_cfg80211_profile *profile = &ifp->vif->profile;
 	struct ieee80211_channel *chan;
 	s32 err = 0;
+	int freq;
+	struct ieee80211_supported_band *band;
 
 	if ((e->event_code == BRCMF_E_DEAUTH) ||
 	    (e->event_code == BRCMF_E_DEAUTH_IND) ||
@@ -4923,13 +4933,27 @@ brcmf_notify_connect_status(struct brcmf_if *ifp,
 	    ((e->event_code == BRCMF_E_LINK) && (!e->flags))) {
 		brcmf_proto_delete_peer(ifp->drvr, ifp->ifidx, (u8 *)e->addr);
 	}
-
+	brcmf_dbg(CONN, "%s: event %d, ch %d\n", __func__, e->event_code, cfg->channel);
 	if (brcmf_is_apmode(ifp->vif)) {
 		err = brcmf_notify_connect_status_ap(cfg, ndev, e, data);
 	} else if (brcmf_is_linkup(e)) {
 		brcmf_dbg(CONN, "Linkup\n");
 		if (brcmf_is_ibssmode(ifp->vif)) {
-			chan = ieee80211_get_channel(cfg->wiphy, cfg->channel);
+			if (cfg->channel <= CH_MAX_2G_CHANNEL)
+				band = cfg->wiphy->bands[IEEE80211_BAND_2GHZ];
+			else
+				band = cfg->wiphy->bands[IEEE80211_BAND_5GHZ];
+
+			freq = ieee80211_channel_to_frequency(cfg->channel, band->band);
+			if (freq == 0) {
+				wiphy_err(cfg->wiphy, "Channel %d is illegal\n", cfg->channel);
+				return -EINVAL;
+			}
+			chan = ieee80211_get_channel(cfg->wiphy, freq);
+			if (chan == NULL) {
+				brcmf_err("No notify channel for %d(%d) MHz\n", cfg->channel, freq);
+				return -EINVAL;
+			}
 			memcpy(profile->bssid, e->addr, ETH_ALEN);
 			wl_inform_ibss(cfg, ndev, e->addr);
 			cfg80211_ibss_joined(ndev, e->addr, chan, GFP_KERNEL);
