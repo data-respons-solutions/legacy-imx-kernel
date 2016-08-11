@@ -1104,7 +1104,8 @@ static void brcmf_link_down(struct brcmf_cfg80211_vif *vif)
 			brcmf_err("WLC_DISASSOC failed (%d)\n", err);
 		}
 		clear_bit(BRCMF_VIF_STATUS_CONNECTED, &vif->sme_state);
-		cfg80211_disconnected(vif->wdev.netdev, 0, NULL, 0, GFP_KERNEL);
+		if (vif->wdev.iftype == NL80211_IFTYPE_STATION || vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT)
+			cfg80211_disconnected(vif->wdev.netdev, 0, NULL, 0, GFP_KERNEL);
 
 	}
 	clear_bit(BRCMF_VIF_STATUS_CONNECTING, &vif->sme_state);
@@ -2290,7 +2291,6 @@ static s32 brcmf_inform_single_bss(struct brcmf_cfg80211_info *cfg,
 	struct cfg80211_bss *bss;
 	struct ieee80211_supported_band *band;
 	struct brcmu_chan ch;
-	s32 err = 0;
 	u16 channel;
 	u32 freq;
 	u16 notify_capability;
@@ -2317,7 +2317,15 @@ static s32 brcmf_inform_single_bss(struct brcmf_cfg80211_info *cfg,
 		band = wiphy->bands[IEEE80211_BAND_5GHZ];
 
 	freq = ieee80211_channel_to_frequency(channel, band->band);
+	if (freq == 0) {
+		wiphy_err(wiphy, "Channel %d is illegal\n", channel);
+		return -EINVAL;
+	}
 	notify_channel = ieee80211_get_channel(wiphy, freq);
+	if (notify_channel == NULL) {
+		brcmf_err("%s: No notify channel for %d(%d) MHz\n", __func__, channel, freq);
+		return -EINVAL;
+	}
 
 	notify_capability = le16_to_cpu(bi->capability);
 	notify_interval = le16_to_cpu(bi->beacon_period);
@@ -2340,7 +2348,7 @@ static s32 brcmf_inform_single_bss(struct brcmf_cfg80211_info *cfg,
 
 	cfg80211_put_bss(wiphy, bss);
 
-	return err;
+	return 0;
 }
 
 static struct brcmf_bss_info_le *
