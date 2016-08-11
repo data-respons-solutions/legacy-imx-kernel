@@ -1261,7 +1261,9 @@ static void brcmf_link_down(struct brcmf_cfg80211_vif *vif, u16 reason)
 			brcmf_err("WLC_DISASSOC failed (%d)\n", err);
 		}
 		clear_bit(BRCMF_VIF_STATUS_CONNECTED, &vif->sme_state);
-		cfg80211_disconnected(vif->wdev.netdev, reason, NULL, 0,
+		if (vif->wdev.iftype == NL80211_IFTYPE_STATION ||
+				vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT)
+			cfg80211_disconnected(vif->wdev.netdev, reason, NULL, 0,
 				      GFP_KERNEL);
 
 	}
