@@ -22,6 +22,7 @@
         mmc0 = &usdhc3;
         mmc1 = &usdhc4;
         rtc0 = &main_rtc;
+        can1 = &flexcan1;
     };
 
     memory {
@@ -315,6 +316,14 @@
        	i2c-adapter = <&i2c2>;
        	ina219-dcin-addr = <0x40>;
        	ina219-manikin-addr = <0x41>;
+    };
+    
+    can-uart-mux {
+    	pinctrl-names = "uart", "can";
+    	pinctrl-0 = <&pinctrl_uart2>;
+	pinctrl-1 = <&pinctrl_flexcan1>;
+    	status = "okay";
+    	compatible = "datarespons,function-mux";
     };
 };
 
@@ -680,6 +689,15 @@
         };
     };
     
+    flexcan1 {
+    	pinctrl_flexcan1: flexcan1grp {
+    		fsl,pins = <
+    			MX6QDL_PAD_GPIO_7__FLEXCAN1_TX 	0x1b0b1
+    			MX6QDL_PAD_GPIO_8__FLEXCAN1_RX	0x1b0b1
+    		>;
+    	};
+    };
+    
     uart1 {
         pinctrl_uart1: uart1grp {
             fsl,pins = <
@@ -901,8 +919,6 @@
 };
 
 &uart2 {
-    pinctrl-names = "default";
-    pinctrl-0 = <&pinctrl_uart2>;
     status = "okay";
 };
 
@@ -1017,4 +1033,10 @@
 &gpu {
 	status = "disabled";
 };
+
+&flexcan1 {
+	trx-en-gpio = <&gpio3 21 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
 
