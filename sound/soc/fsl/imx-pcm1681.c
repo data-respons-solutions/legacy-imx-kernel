@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
+#include <linux/power_supply.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <sound/control.h>
@@ -43,6 +44,8 @@ struct imx_pcm1681_data {
 	int num_shutdown_gpios;
 	u32 pll_freq;
 	struct clk *input_clk;
+	struct power_supply *power[2];
+	int nr_power;
 };
 
 static const struct snd_soc_dapm_widget imx_pcm1681_dapm_widgets[] = {
@@ -195,6 +198,8 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 	int n, sd_gpios;
 	enum of_gpio_flags flags;
 	int gpio_nr;
+	int nr_supplies;
+	const char *supply_name;
 
 
 	cpu_np = of_parse_phandle(pdev->dev.of_node, "cpu-dai", 0);
@@ -297,6 +302,24 @@ static int imx_pcm1681_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &data->card);
 	snd_soc_card_set_drvdata(&data->card, data);
 
+	/* Power supplies */
+	nr_supplies = of_property_count_strings(pdev->dev.of_node, "extra-supply");
+	if ( nr_supplies > 0) {
+		dev_info(&pdev->dev, "Found %d power supplies (MAX is 2)\n", nr_supplies);
+		if (nr_supplies > 2)
+			nr_supplies = 2;
+		data->nr_power = nr_supplies;
+		for (nr_supplies=0; nr_supplies < data->nr_power; nr_supplies++) {
+			ret = of_property_read_string_index(pdev->dev.of_node, "extra-supply", nr_supplies, &supply_name);
+			if (ret == 0) {
+				data->power[nr_supplies] = power_supply_get_by_name(supply_name);
+				if (data->power[nr_supplies] == NULL)
+					dev_err(&pdev->dev, "Unable to get power %s\n", supply_name);
+			}
+
+		}
+
+	}
 	ret = snd_soc_register_card(&data->card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", ret);
@@ -315,8 +338,13 @@ fail:
 static int imx_pcm1681_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-
+	struct imx_pcm1681_data *data = snd_soc_card_get_drvdata(card);
+	if (data->power[0])
+		power_supply_put(data->power[0]);
+	if (data->power[1])
+		power_supply_put(data->power[1]);
 	snd_soc_unregister_card(card);
+
 	return 0;
 }
 

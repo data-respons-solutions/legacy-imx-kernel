@@ -290,6 +290,7 @@
         cpu-dai = <&esai>;
         audio-codec = <&codec_pcm1681>;
         hfclk-freq = <8192000>;
+        extra-supply = "MANIKIN_12V", "MANIKIN_5V";
         
         audio-routing = 
             "OUT1", "VOUT1",
