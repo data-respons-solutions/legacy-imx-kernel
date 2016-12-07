@@ -16,7 +16,7 @@
 #include <dt-bindings/gpio/gpio.h>
 / {
     model = "Sperre";
-    compatible = "datarespons,sperre";
+    compatible = "datarespons,laerdal2";
     
     aliases {
     	mxcfb0 = &mxcfb1;
@@ -778,4 +778,8 @@
 
 &esai {
     status = "disabled";
+};
+
+&snvs_poweroff {
+	status = "okay";
 };
