@@ -61,3 +61,4 @@ obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_PWM_BUZZER) += pwm_buzzer.o
 obj-$(CONFIG_MODULATED_PWM) += modulated_pwm.o
 obj-$(CONFIG_OF_FUNCTION_PINMUX) += dt-function-mux.o
+obj-$(CONFIG_MAX31913)		+= max31913.o

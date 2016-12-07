@@ -554,6 +554,14 @@ config OF_FUNCTION_PINMUX
 	help
 		Function multiplexer for pads
 
+config MAX31913
+	tristate "MAX31913 Industrial interface serializer"
+	help
+	  SPI driver for MAX31913. Serializes the 24V digital
+	  output of sensors and switches used in industrial, 
+	  process, and building automation to 5V CMOS-compatible 
+	  signals required by microcontroller.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
