@@ -296,9 +296,11 @@
 	pinctrl-0 = <&pinctrl_enet>;
 	phy-mode = "rmii";
 	fsl,magic-packet;
-	phy-reset-gpios = <&gpio6 14 GPIO_ACTIVE_HIGH>;
+	phy-reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>;
 	phy-supply = <&reg_fec_supply>;
 	phy-handle = <&ethphy>;
+	assigned-clocks = <&clks IMX6QDL_CLK_ENET_REF>;
+	assigned-clock-rates = <50000000>;
     mdio {
        #address-cells = <1>;
        #size-cells = <0>;
