@@ -26,7 +26,7 @@
     };
 
     memory {
-        reg = <0x10000000 0x40000000>;
+        reg = <0x10000000 0x20000000>;
     };
 
     
@@ -210,13 +210,13 @@
         };
         
         status-green {
-            gpios = <&gpio1 19 GPIO_ACTIVE_LOW>;
+            gpios = <&gpio1 19 GPIO_ACTIVE_HIGH>;
             default-state = "on";
             linux,default-trigger = "timer";
         };
         
         status-blue {
-            gpios = <&gpio1 21 GPIO_ACTIVE_LOW>;
+            gpios = <&gpio1 21 GPIO_ACTIVE_HIGH>;
             default-state = "off";
         };
         
@@ -228,22 +228,16 @@
         cpu-dai = <&ssi2>;
         audio-codec = <&codec>;
         audio-routing =
-            "Headphone Jack", "HP_L",
-            "Headphone Jack", "HP_R",
-            "Ext Spk", "OUT3",
+            "Ext Spk", "SPK_RP",
+            "Ext Spk", "SPK_RN",
+            "Ext Spk", "SPK_LP",
+            "Ext Spk", "SPK_LN",
             "LINPUT1", "AMIC";
-        ncpins = "SPK_RP", "SPK_RN", "SPK_LP", "SPK_LN";
+        ncpins = "HP_L", "HP_R", "OUT3";
         mux-int-port = <2>;
         mux-ext-port = <3>;
     };
 
-    can-uart-mux {
-    	pinctrl-names = "uart", "can";
-    	pinctrl-0 = <&pinctrl_uart2>;
-		pinctrl-1 = <&pinctrl_flexcan1>;
-    	status = "okay";
-    	compatible = "datarespons,function-mux";
-    };
 };
 
 
@@ -501,7 +495,6 @@
                 MX6QDL_PAD_NANDF_D6__GPIO2_IO06     0x1b0b1         /* GP--WL_HOST_WAKE */
                 MX6QDL_PAD_NANDF_D7__GPIO2_IO07     0x1b8b1         /* GP--WL_DEV_WAKE */
                 MX6QDL_PAD_EIM_D20__GPIO3_IO20      0x80000000      /* GP--nWP--flash (SPI flash WP) */
-                MX6QDL_PAD_EIM_D21__GPIO3_IO21      0x80000000      /* CAN_EN */
                 MX6QDL_PAD_EIM_D26__GPIO3_IO26      0x80000000      /* GP--WL_BAT_PWR_EN */
                 MX6QDL_PAD_EIM_D27__GPIO3_IO27      0x0001b000      /* HW_Setting_0 */
                 MX6QDL_PAD_EIM_D28__GPIO3_IO28      0x0001b000      /* HW_Setting_1 */
@@ -621,6 +614,8 @@
         pinctrl_usbotg: usbotggrp {
             fsl,pins = <
                 MX6QDL_PAD_ENET_RX_ER__USB_OTG_ID   0x17059
+                MX6QDL_PAD_EIM_D22__USB_OTG_PWR		0x1b0b1
+                MX6QDL_PAD_EIM_D21__USB_OTG_OC		0x17059
             >;
         };
     };
@@ -628,8 +623,8 @@
     usdhc3 {
         pinctrl_usdhc3: usdhc3grp {
             fsl,pins = <
-                MX6QDL_PAD_SD3_CMD__SD3_CMD     0x17059
-                MX6QDL_PAD_SD3_CLK__SD3_CLK     0x10059
+                MX6QDL_PAD_SD3_CMD__SD3_CMD     	0x17059
+                MX6QDL_PAD_SD3_CLK__SD3_CLK     	0x10059
                 MX6QDL_PAD_SD3_DAT0__SD3_DATA0      0x17059
                 MX6QDL_PAD_SD3_DAT1__SD3_DATA1      0x17059
                 MX6QDL_PAD_SD3_DAT2__SD3_DATA2      0x17059
@@ -638,6 +633,7 @@
                 MX6QDL_PAD_SD3_DAT5__SD3_DATA5      0x17059
                 MX6QDL_PAD_SD3_DAT6__SD3_DATA6      0x17059
                 MX6QDL_PAD_SD3_DAT7__SD3_DATA7      0x17059
+                MX6QDL_PAD_SD3_RST__SD3_RESET     	0x17059
             >;
         };
     };
@@ -645,8 +641,8 @@
     usdhc4 {
         pinctrl_usdhc4: usdhc4grp {
             fsl,pins = <
-                MX6QDL_PAD_SD4_CMD__SD4_CMD     0x17059
-                MX6QDL_PAD_SD4_CLK__SD4_CLK     0x10059
+                MX6QDL_PAD_SD4_CMD__SD4_CMD     	0x17059
+                MX6QDL_PAD_SD4_CLK__SD4_CLK     	0x10059
                 MX6QDL_PAD_SD4_DAT0__SD4_DATA0      0x17059
                 MX6QDL_PAD_SD4_DAT1__SD4_DATA1      0x17059
                 MX6QDL_PAD_SD4_DAT2__SD4_DATA2      0x17059
@@ -802,7 +798,6 @@
 };
 
 &usbh1 {
-    vbus-supply = <&swbst_reg>;
     status = "disabled";
 };
 
@@ -810,6 +805,11 @@
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_usbotg>;
     status = "okay";
+    vbus-supply = <&swbst_reg>;
+    disable-over-current;
+    srp-disable;
+    hnp-disable;
+    adp-disable;
 };
 
 &usdhc2 {
@@ -890,6 +890,8 @@
 &can1 {
 	trx-en-gpio = <&gpio3 21 GPIO_ACTIVE_HIGH>;
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl0 = <&pinctrl_flexcan1>;
 };
 
 &snvs_poweroff {
