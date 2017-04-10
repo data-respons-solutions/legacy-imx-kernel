@@ -40,6 +40,10 @@
 #include "bus.h"
 #include "common.h"
 
+static int disable_powersave=1;
+module_param(disable_powersave, int, S_IRUSR);
+MODULE_PARM_DESC(disable_powersave, "disable power managment for cfg80211");
+
 #define BRCMF_SCAN_IE_LEN_MAX		2048
 #define BRCMF_PNO_VERSION		2
 #define BRCMF_PNO_TIME			30
@@ -2484,14 +2488,14 @@ brcmf_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 	 * preference in cfg struct to apply this to
 	 * FW later while initializing the dongle
 	 */
-	cfg->pwr_save = enabled;
+	cfg->pwr_save = (enabled && disable_powersave == 0);
 	if (!check_vif_up(ifp->vif)) {
 
 		brcmf_dbg(INFO, "Device is not ready, storing the value in cfg_info struct\n");
 		goto done;
 	}
 
-	pm = enabled ? PM_FAST : PM_OFF;
+	pm = cfg->pwr_save ? PM_FAST : PM_OFF;
 	/* Do not enable the power save after assoc if it is a p2p interface */
 	if (ifp->vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT) {
 		brcmf_dbg(INFO, "Do not enable power save for P2P clients\n");
