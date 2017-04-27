@@ -36,6 +36,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/delay.h>
 
 #define TS_POLL_DELAY			5 /* ms delay between samples */
 #define TS_POLL_PERIOD			5 /* ms delay between samples */
@@ -498,6 +499,29 @@ static int tsc2004_probe(struct i2c_client *client,
 	struct tsc2004 *ts;
 	struct input_dev *input_dev;
 	int err;
+	bool is_pendown = true; // assuming that is pendown
+	struct device_node *np = client->dev.of_node;
+	int interrupt_gpio = of_get_gpio(np, 0);
+	int reset_gpio = of_get_gpio(np, 1);
+	
+	if (gpio_is_valid(interrupt_gpio) && gpio_is_valid(reset_gpio))
+	{
+		do
+		{
+			gpio_set_value(reset_gpio, 0);
+			msleep(5);
+			gpio_set_value(reset_gpio, 1);
+			msleep(100);
+			is_pendown = !gpio_get_value(interrupt_gpio);
+			//printk(KERN_CRIT "-------- | pendown_state = %d\n", is_pendown);
+		}while(is_pendown);
+	}
+	else
+	{
+		//printk(KERN_CRIT "-------- | gpio%d or gpio%d is not valid\n", interrupt_gpio, reset_gpio);
+		dev_err(&client->dev, "Defined wrong gpios? Touch INT=%d, TOUCH RST=%d\n", interrupt_gpio, reset_gpio);
+		goto err_free_mem;
+	}
 
 	if (!i2c_check_functionality(client->adapter,
 					 I2C_FUNC_SMBUS_READ_WORD_DATA))

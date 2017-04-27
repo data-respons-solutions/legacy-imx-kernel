@@ -450,7 +450,8 @@
 	tsc2004@4b {
 		compatible = "ti,tsc2004";
 		reg = <0x4b>;
-		gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;		/* Touch INT */
+		gpios = <&gpio1 5 GPIO_ACTIVE_LOW>,         /* Touch INT */
+                <&gpio7 12 GPIO_ACTIVE_LOW>;        /* Touch RST */
 		reset-gpios = <&gpio7 12 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio1>;
 		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
