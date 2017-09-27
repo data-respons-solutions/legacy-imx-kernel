@@ -101,7 +101,7 @@ struct rte_console {
 #include "debug.h"
 #include "tracepoint.h"
 
-static int brcmf_sdiod_no_bus_sleep = 0;
+static int brcmf_sdiod_no_bus_sleep = 1;
 module_param_named(no_bus_sleep, brcmf_sdiod_no_bus_sleep, int, 0);
 MODULE_PARM_DESC(no_bus_sleep, "No bus sleep allowed [SDIO]");
 
@@ -1015,7 +1015,7 @@ brcmf_sdio_bus_sleep(struct brcmf_sdio *bus, bool sleep, bool pendok)
 	int err = 0;
 	u8 clkcsr;
 
-	if (brcmf_sdiod_no_bus_sleep) {
+	if (brcmf_sdiod_no_bus_sleep && sleep) {
 		brcmf_dbg(SDIO, "Sleep disabled\n");
 		return 0;
 	}
