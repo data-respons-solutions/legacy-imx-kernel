@@ -487,6 +487,10 @@ static int brcmf_sdio_txglomsz = BRCMF_DEFAULT_TXGLOM_SIZE;
 module_param_named(txglomsz, brcmf_sdio_txglomsz, int, 0);
 MODULE_PARM_DESC(txglomsz, "maximum tx packet chain size [SDIO]");
 
+static int brcmf_sdiod_no_bus_sleep = 1;
+module_param_named(no_bus_sleep, brcmf_sdiod_no_bus_sleep, int, 0);
+MODULE_PARM_DESC(no_bus_sleep, "No bus sleep allowed [SDIO]");
+
 enum brcmf_sdio_frmtype {
 	BRCMF_SDIO_FT_NORMAL,
 	BRCMF_SDIO_FT_SUPER,
@@ -900,6 +904,12 @@ brcmf_sdio_bus_sleep(struct brcmf_sdio *bus, bool sleep, bool pendok)
 {
 	int err = 0;
 	brcmf_dbg(TRACE, "Enter\n");
+
+	if (brcmf_sdiod_no_bus_sleep && sleep) {
+			brcmf_dbg(SDIO, "Sleep disabled\n");
+			return 0;
+	}
+
 	brcmf_dbg(SDIO, "request %s currently %s\n",
 		  (sleep ? "SLEEP" : "WAKE"),
 		  (bus->sleeping ? "SLEEP" : "WAKE"));
