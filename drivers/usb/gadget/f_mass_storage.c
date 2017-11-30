@@ -343,7 +343,7 @@ struct fsg_dev {
 
 #ifdef CONFIG_USB_MASS_STORAGE_LAERDAL
 static const bool cache_off = true;
-static const char *gadget_name = "Simpad PLUS";
+static const char *gadget_name = "SimPad PLUS";
 static const char *vendor_name = "Laerdal";
 #else
 static const bool cache_off = false;
