@@ -1303,7 +1303,7 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 		buf[1] = 10;		/* Page length */
 		memset(buf+2, 0, 10);	/* None of the fields are changeable */
 
-		if (!changeable_values) {
+		if (!changeable_values && !cache_off) {
 			buf[2] = 0x04;	/* Write cache enable, */
 					/* Read cache not disabled */
 					/* No cache retention priorities */
