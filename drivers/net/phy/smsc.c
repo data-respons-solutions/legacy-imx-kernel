@@ -24,6 +24,8 @@
 #include <linux/netdevice.h>
 #include <linux/smscphy.h>
 
+#define NO_EDPWRDOWN
+
 static int smsc_phy_config_intr(struct phy_device *phydev)
 {
 	int rc = phy_write (phydev, MII_LAN83C185_IM,
@@ -43,6 +45,9 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
 
 static int smsc_phy_config_init(struct phy_device *phydev)
 {
+#ifdef NO_EDPWRDOWN
+	return 0;
+#else
 	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
 
 	if (rc < 0)
@@ -55,6 +60,7 @@ static int smsc_phy_config_init(struct phy_device *phydev)
 		return rc;
 
 	return smsc_phy_ack_interrupt(phydev);
+#endif
 }
 
 static int smsc_phy_reset(struct phy_device *phydev)
@@ -104,7 +110,7 @@ static int lan911x_config_init(struct phy_device *phydev)
 static int lan87xx_read_status(struct phy_device *phydev)
 {
 	int err = genphy_read_status(phydev);
-
+#ifndef NO_EDPWRDOWN
 	if (!phydev->link) {
 		/* Disable EDPD to wake up PHY */
 		int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
@@ -129,7 +135,7 @@ static int lan87xx_read_status(struct phy_device *phydev)
 		if (rc < 0)
 			return rc;
 	}
-
+#endif
 	return err;
 }
 
