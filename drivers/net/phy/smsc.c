@@ -32,22 +32,21 @@ static int smsc_phy_config_intr(struct phy_device *phydev)
 			((PHY_INTERRUPT_ENABLED == phydev->interrupts)
 			? MII_LAN83C185_ISF_INT_PHYLIB_EVENTS
 			: 0));
-
 	return rc < 0 ? rc : 0;
 }
 
 static int smsc_phy_ack_interrupt(struct phy_device *phydev)
 {
 	int rc = phy_read (phydev, MII_LAN83C185_ISF);
+	int status = phy_read(phydev, MII_BMSR);
+	dev_dbg(&phydev->dev, "ISF=0x%x, BMSR=0x%x\n", rc, status);
 
 	return rc < 0 ? rc : 0;
 }
 
 static int smsc_phy_config_init(struct phy_device *phydev)
 {
-#ifdef NO_EDPWRDOWN
-	return 0;
-#else
+#ifndef NO_EDPWRDOWN
 	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
 
 	if (rc < 0)
@@ -59,8 +58,8 @@ static int smsc_phy_config_init(struct phy_device *phydev)
 	if (rc < 0)
 		return rc;
 
-	return smsc_phy_ack_interrupt(phydev);
 #endif
+	return smsc_phy_ack_interrupt(phydev);
 }
 
 static int smsc_phy_reset(struct phy_device *phydev)
@@ -88,7 +87,8 @@ static int smsc_phy_reset(struct phy_device *phydev)
 			rc = phy_read(phydev, MII_BMCR);
 		} while (rc & BMCR_RESET);
 	}
-	return 0;
+	/* reset the phy */
+	return genphy_soft_reset(phydev);
 }
 
 static int lan911x_config_init(struct phy_device *phydev)
