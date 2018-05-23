@@ -38,8 +38,7 @@ static int smsc_phy_config_intr(struct phy_device *phydev)
 static int smsc_phy_ack_interrupt(struct phy_device *phydev)
 {
 	int rc = phy_read (phydev, MII_LAN83C185_ISF);
-	int status = phy_read(phydev, MII_BMSR);
-	dev_dbg(&phydev->dev, "ISF=0x%x, BMSR=0x%x\n", rc, status);
+	dev_info(&phydev->dev, "ISF=0x%x\n", rc);
 
 	return rc < 0 ? rc : 0;
 }
@@ -72,21 +71,11 @@ static int smsc_phy_reset(struct phy_device *phydev)
 	 * in all capable mode before using it.
 	 */
 	if ((rc & MII_LAN83C185_MODE_MASK) == MII_LAN83C185_MODE_POWERDOWN) {
-		int timeout = 50000;
-
-		/* set "all capable" mode and reset the phy */
+		/* set "all capable" mode */
 		rc |= MII_LAN83C185_MODE_ALL;
 		phy_write(phydev, MII_LAN83C185_SPECIAL_MODES, rc);
-		phy_write(phydev, MII_BMCR, BMCR_RESET);
-
-		/* wait end of reset (max 500 ms) */
-		do {
-			udelay(10);
-			if (timeout-- == 0)
-				return -1;
-			rc = phy_read(phydev, MII_BMCR);
-		} while (rc & BMCR_RESET);
 	}
+
 	/* reset the phy */
 	return genphy_soft_reset(phydev);
 }
@@ -112,6 +101,8 @@ static int lan87xx_read_status(struct phy_device *phydev)
 	int err = genphy_read_status(phydev);
 #ifndef NO_EDPWRDOWN
 	if (!phydev->link) {
+		int i;
+
 		/* Disable EDPD to wake up PHY */
 		int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
 		if (rc < 0)
@@ -122,8 +113,16 @@ static int lan87xx_read_status(struct phy_device *phydev)
 		if (rc < 0)
 			return rc;
 
-		/* Sleep 64 ms to allow ~5 link test pulses to be sent */
-		msleep(64);
+		/* Wait max 640 ms to detect energy */
+		for (i = 0; i < 64; i++) {
+			/* Sleep to allow link test pulses to be sent */
+			msleep(10);
+			rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+			if (rc < 0)
+				return rc;
+			if (rc & MII_LAN83C185_ENERGYON)
+				break;
+		}
 
 		/* Re-enable EDPD */
 		rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
@@ -136,6 +135,7 @@ static int lan87xx_read_status(struct phy_device *phydev)
 			return rc;
 	}
 #endif
+
 	return err;
 }
 
