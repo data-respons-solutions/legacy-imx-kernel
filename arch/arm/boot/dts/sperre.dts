@@ -291,7 +291,6 @@
 };
 
 &fec {
-    compatible = "fsl,imx6q-fec";
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet>;
@@ -309,7 +308,7 @@
        ethphy: ethernet-phy@0 {
            compatible = "ethernet-phy-ieee802.3-c22";
            reg = <0x0>;
-           //max-speed = <100>;
+           max-speed = <10>;
            smsc,disable-energy-detect;
            interrupt-parent = <&gpio1>;
            interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
