@@ -38,7 +38,7 @@ static int smsc_phy_config_intr(struct phy_device *phydev)
 static int smsc_phy_ack_interrupt(struct phy_device *phydev)
 {
 	int rc = phy_read (phydev, MII_LAN83C185_ISF);
-	dev_info(&phydev->dev, "ISF=0x%x\n", rc);
+	dev_dbg(&phydev->dev, "ISF=0x%x\n", rc);
 
 	return rc < 0 ? rc : 0;
 }
