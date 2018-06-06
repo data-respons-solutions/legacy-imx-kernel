@@ -328,6 +328,19 @@ static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int imx_hifi_hw_free(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_card *card = rtd->card;
+	struct imx_wm8960_data *data = snd_soc_card_get_drvdata(card);
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	struct device *dev = card->dev;
+	int ret;
+
+	data->stream_active[tx] = false;
+	return 0;
+}
 static int imx_hifi_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -346,14 +359,12 @@ static void imx_hifi_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
 	struct imx_wm8960_data *data = snd_soc_card_get_drvdata(card);
-	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
-	dev_dbg(card->dev, "%s: [%s]\n", __func__, tx ? "tx" : "rx");
-	data->stream_active[tx] = false;
 	clk_disable_unprepare(data->codec_clk);
 }
 
 static struct snd_soc_ops imx_hifi_ops = {
 	.hw_params = imx_hifi_hw_params,
+	.hw_free = imx_hifi_hw_free,
 	.startup = imx_hifi_startup,
 	.shutdown = imx_hifi_shutdown,
 };

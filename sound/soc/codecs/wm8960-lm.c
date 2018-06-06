@@ -648,10 +648,7 @@ static int wm8960_hw_params(struct snd_pcm_substream *substream,
 					params_rate(params), params_width(params), snd_soc_params_to_bclk(params) );
 
 	wm8960->stream_active[tx] = true;
-	if (wm8960->stream_active[!tx]) {
-		dev_dbg(codec->dev, "A stream is already present, can not configure clocks or interfaces\n");
-		return 0;
-	}
+
 
 	wm8960->bclk = snd_soc_params_to_bclk(params);
 	if (params_channels(params) == 1)
@@ -694,8 +691,20 @@ static int wm8960_hw_params(struct snd_pcm_substream *substream,
 	/* set iface */
 	snd_soc_write(codec, WM8960_IFACE1, iface);
 
-	wm8960_configure_clocking(codec, substream->stream,
-			params_rate(params));
+	if (!wm8960->stream_active[!tx])
+		wm8960_configure_clocking(codec, substream->stream, params_rate(params));
+
+	return 0;
+}
+
+static int wm8960_hw_free(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+
+	wm8960->stream_active[tx] = false;
 
 	return 0;
 }
@@ -760,7 +769,7 @@ static int wm8960_set_bias_level_out3(struct snd_soc_codec *codec,
 				      WM8960_BUFDCOPEN | WM8960_BUFIOEN);
 
 			/* Enable & ramp VMID at 2x50k */
-			snd_soc_update_bits(codec, WM8960_POWER1, 0x180, 0x80);
+			snd_soc_update_bits(codec, WM8960_POWER1, 0x80, 0x80);
 			msleep(100);
 
 			/* Enable VREF */
@@ -1005,7 +1014,7 @@ static int wm8960_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 
 	/* Turn it on */
 	snd_soc_update_bits(codec, WM8960_POWER2, 0x1, 0x1);
-	msleep(10);
+	msleep(250);
 	snd_soc_update_bits(codec, WM8960_CLOCK1, 0x1, 0x1);
 
 	return 0;
@@ -1077,13 +1086,6 @@ static int wm8960_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 	return 0;
 }
 
-void wm8960_shutdown(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
-{
-	struct snd_soc_codec *codec = dai->codec;
-	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
-	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
-	wm8960->stream_active[tx] = false;
-}
 
 #define WM8960_RATES SNDRV_PCM_RATE_8000_48000
 
@@ -1093,12 +1095,12 @@ void wm8960_shutdown(struct snd_pcm_substream *substream, struct snd_soc_dai *da
 
 static const struct snd_soc_dai_ops wm8960_dai_ops = {
 	.hw_params = wm8960_hw_params,
+	.hw_free = wm8960_hw_free,
 	.digital_mute = wm8960_mute,
 	.set_fmt = wm8960_set_dai_fmt,
 	.set_clkdiv = wm8960_set_dai_clkdiv,
 	.set_pll = wm8960_set_dai_pll,
 	.set_sysclk = wm8960_set_dai_sysclk,
-	.shutdown = wm8960_shutdown,
 };
 
 static struct snd_soc_dai_driver wm8960_dai = {
