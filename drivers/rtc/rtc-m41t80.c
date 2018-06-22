@@ -46,6 +46,7 @@
 #define M41T80_REG_ALARM_MIN	0x0d
 #define M41T80_REG_ALARM_SEC	0x0e
 #define M41T80_REG_FLAGS	0x0f
+#define M41T80_REG_ACAL		0x12
 #define M41T80_REG_SQW		0x13
 
 #define M41T80_DATETIME_REG_SIZE	(M41T80_REG_YEAR + 1)
@@ -89,6 +90,7 @@ MODULE_DEVICE_TABLE(i2c, m41t80_id);
 struct m41t80_data {
 	u8 features;
 	struct rtc_device *rtc;
+	u8 acal;
 };
 
 static irqreturn_t m41t80_handle_irq(int irq, void *dev_id)
@@ -812,7 +814,15 @@ static int m41t80_probe(struct i2c_client *client,
 		return PTR_ERR(rtc);
 
 	m41t80_data->rtc = rtc;
-
+#ifdef CONFIG_OF
+	if ( client->dev.of_node ) {
+		rc = of_property_read_u8(client->dev.of_node, "xtal-cap", &clientdata->acal);
+		if (rc == 0) {
+			rc = i2c_smbus_write_byte_data(client, M41T80_REG_ACAL, clientdata->acal);
+			dev_info(&client->dev, "Setting ACAL to DT value %x\n", clientdata->acal);
+		}
+	}
+#endif
 	/* Make sure HT (Halt Update) bit is cleared */
 	rc = i2c_smbus_read_byte_data(client, M41T80_REG_ALARM_HOUR);
 
