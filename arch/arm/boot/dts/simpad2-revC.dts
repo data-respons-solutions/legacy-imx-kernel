@@ -16,7 +16,7 @@
 
 / {
     model = "Laerdal Medical SIMPAD PLUS (REV C)";
-    compatible = "fsl,imx6q";
+    compatible = "fsl,imx6dl";
     
     aliases {
         mxcfb0 = &mxcfb1;
@@ -26,9 +26,13 @@
     };
 
     memory {
-        reg = <0x10000000 0x40000000>;
+        reg = <0x10000000 0x20000000>;
     };
 
+	chosen {
+		stdout-path = &uart1;
+	};
+	
     regulators {
         compatible = "simple-bus";
 
@@ -336,15 +340,9 @@
 };
 
 
-&cpu0 {
-    arm-supply = <&reg_arm>;
-    soc-supply = <&reg_soc>;
-};
-
 
 &gpc {
     fsl,ldo-bypass = <0>; /* use ldo-bypass, u-boot will check it and configure */
-    fsl,wdog-reset = <1>; /* watchdog select of reset source */
 };
 
 &wdog1 {
@@ -836,6 +834,14 @@
     hnp-disable;
     adp-disable;
     status = "okay";
+};
+
+&usbphy1 {
+	tx-d-cal = <0x5>;
+};
+
+&usbphy2 {
+	tx-d-cal = <0x5>;
 };
 
 &usdhc1 {
