@@ -437,7 +437,7 @@ static void __init imx6q_init_machine(void)
 	imx6q_csi_mux_init();
 	cpu_is_imx6q() ?  imx6q_pm_init() : imx6dl_pm_init();
 	imx6q_axi_init();
-	imx6q_add_gpio();
+
 }
 
 #define OCOTP_CFG3			0x440
@@ -544,6 +544,7 @@ static void __init imx6q_init_late(void)
 		imx6q_opp_init();
 		platform_device_register(&imx6q_cpufreq_pdev);
 	}
+	imx6q_add_gpio();
 }
 
 static void __init imx6q_map_io(void)
