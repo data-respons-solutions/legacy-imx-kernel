@@ -816,10 +816,10 @@ static int m41t80_probe(struct i2c_client *client,
 	m41t80_data->rtc = rtc;
 #ifdef CONFIG_OF
 	if ( client->dev.of_node ) {
-		rc = of_property_read_u8(client->dev.of_node, "xtal-cap", &clientdata->acal);
+		rc = of_property_read_u8(client->dev.of_node, "xtal-cap", &m41t80_data->acal);
 		if (rc == 0) {
-			rc = i2c_smbus_write_byte_data(client, M41T80_REG_ACAL, clientdata->acal);
-			dev_info(&client->dev, "Setting ACAL to DT value %x\n", clientdata->acal);
+			rc = i2c_smbus_write_byte_data(client, M41T80_REG_ACAL, m41t80_data->acal);
+			dev_info(&client->dev, "Setting ACAL to DT value %x\n", m41t80_data->acal);
 		}
 	}
 #endif
