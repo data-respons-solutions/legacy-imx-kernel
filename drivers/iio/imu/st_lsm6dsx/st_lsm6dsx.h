@@ -19,6 +19,9 @@
 #define ST_LSM6DSL_DEV_NAME	"lsm6dsl"
 #define ST_LSM6DSM_DEV_NAME	"lsm6dsm"
 
+#define ST_LSM6DSX_FUNC_SRC1_ADDR		0x53
+#define ST_LSM6DSX_FUNC_SRC1_SIGNM_MASK		BIT(6)
+
 enum st_lsm6dsx_hw_id {
 	ST_LSM6DS3_ID,
 	ST_LSM6DS3H_ID,
@@ -95,6 +98,7 @@ struct st_lsm6dsx_sensor {
 	u8 sip;
 	u8 decimator;
 	u8 decimator_mask;
+	u8 enable_wake;
 
 	s64 delta_ts;
 	s64 ts;
@@ -149,5 +153,6 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 int st_lsm6dsx_flush_fifo(struct st_lsm6dsx_hw *hw);
 int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 			     enum st_lsm6dsx_fifo_mode fifo_mode);
+void st_lsm6dsx_shutdown(struct device *dev);
 
 #endif /* ST_LSM6DSX_H */

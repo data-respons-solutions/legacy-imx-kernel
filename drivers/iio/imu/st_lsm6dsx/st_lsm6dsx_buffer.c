@@ -53,6 +53,11 @@
 
 #define ST_LSM6DSX_MAX_FIFO_ODR_VAL		0x08
 
+
+
+
+
+
 struct st_lsm6dsx_decimator_entry {
 	u8 decimator;
 	u8 val;
@@ -395,8 +400,17 @@ static irqreturn_t st_lsm6dsx_handler_irq(int irq, void *private)
 static irqreturn_t st_lsm6dsx_handler_thread(int irq, void *private)
 {
 	struct st_lsm6dsx_hw *hw = private;
-	int count;
+	int count, err;
+	u8 func_src1;
 
+	err = hw->tf->read(hw->dev, ST_LSM6DSX_FUNC_SRC1_ADDR, 1, &func_src1);
+	if (err < 0) {
+		dev_err(hw->dev, "%s: failed reading reg %d\n", __func__, ST_LSM6DSX_FUNC_SRC1_ADDR);
+		return IRQ_NONE;
+	}
+	if (func_src1 & ST_LSM6DSX_FUNC_SRC1_SIGNM_MASK) {
+		dev_info(hw->dev, "Significant movement\n");
+	}
 	mutex_lock(&hw->fifo_lock);
 	count = st_lsm6dsx_read_fifo(hw);
 	mutex_unlock(&hw->fifo_lock);
