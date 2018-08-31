@@ -525,4 +525,16 @@ config SABRESD_MAX8903
          sabresd board.The driver supports controlling charger and battery
          based on the status of charger connections with interrupt handlers.
 
+config LINKBOX_PLUS_PSY
+    bool "Linkbox Plus Power Supply"
+    depends on I2C && GPIOLIB
+    help
+        Say Y to enable Linkbox Plus PSY
+        
+config SIMPAD_PLUS_PSY
+    bool "Simpad Plus Power Supply"
+    depends on GPIOLIB
+    help
+        Say Y to enable Simpad Plus PSY
+
 endif # POWER_SUPPLY
