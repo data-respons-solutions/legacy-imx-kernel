@@ -507,6 +507,14 @@ config VEXPRESS_SYSCFG
 	  ARM Ltd. Versatile Express uses specialised platform configuration
 	  bus. System Configuration interface is one of the possible means
 	  of generating transactions on this bus.
+
+config OF_FUNCTION_PINMUX
+	tristate "Function Pinmux"
+	default n
+	depends on OF && PINMUX && PINCTRL
+	help
+		Function multiplexer for pads
+	  
 config PANEL
 	tristate "Parallel port LCD/Keypad Panel support"
 	depends on PARPORT
