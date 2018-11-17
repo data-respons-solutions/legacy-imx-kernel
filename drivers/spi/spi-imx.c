@@ -1178,12 +1178,18 @@ static int spi_imx_probe(struct platform_device *pdev)
 	struct spi_imx_data *spi_imx;
 	struct resource *res;
 	int i, ret, irq;
+	bool nodma = 0;
 
 	if (!np && !mxc_platform_info) {
 		dev_err(&pdev->dev, "can't get the platform data\n");
 		return -EINVAL;
 	}
-
+	if (np) {
+		nodma = of_property_read_bool(np, "nodma");
+		if (nodma) {
+			dev_info(&pdev->dev, "DMA disabled by DT\n");
+		}
+	}
 	master = spi_alloc_master(&pdev->dev, sizeof(struct spi_imx_data));
 	if (!master)
 		return -ENOMEM;
@@ -1270,7 +1276,7 @@ static int spi_imx_probe(struct platform_device *pdev)
 	 * Only validated on i.mx6 now, can remove the constrain if validated on
 	 * other chips.
 	 */
-	if (is_imx51_ecspi(spi_imx)) {
+	if (is_imx51_ecspi(spi_imx) && !nodma) {
 		ret = spi_imx_sdma_init(&pdev->dev, spi_imx, master);
 		if (ret == -EPROBE_DEFER)
 			goto out_clk_put;

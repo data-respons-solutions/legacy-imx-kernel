@@ -235,10 +235,12 @@
     };
     
     sound_2ch {
-        compatible = "fsl,lm-imx-audio-cpu-module";
+        compatible = "fsl,imx-audio-wm8960";
         model = "wm8960-audio";
-        ssi-controller = <&ssi2>;
+        cpu-dai = <&ssi2>;
         audio-codec = <&codec>;
+        codec-master;
+        gpr = <&gpr>;
         audio-routing =
             "Headphone", "HP_L",
             "Right Input", "RINPUT1",
