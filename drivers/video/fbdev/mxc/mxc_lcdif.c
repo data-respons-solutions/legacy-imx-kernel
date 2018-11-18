@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/mxcfb.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 
@@ -26,6 +27,8 @@ struct mxc_lcd_platform_data {
 	u32 default_ifmt;
 	u32 ipu_id;
 	u32 disp_id;
+	int enable_gpio;
+	enum of_gpio_flags gpio_flags;
 };
 
 struct mxc_lcdif_data {
@@ -45,6 +48,12 @@ static struct fb_videomode lcdif_modedb[] = {
 	{
 	/* 800x480 @ 60 Hz , pixel clk @ 32MHz */
 	"SEIKO-WVGA", 60, 800, 480, 29850, 89, 164, 23, 10, 10, 10,
+	FB_SYNC_CLK_LAT_FALL,
+	FB_VMODE_NONINTERLACED,
+	0,},
+	{
+	/* 640x480 @ 60 Hz , pixel clk @ 23.5MHz */
+	"SIMPAD-VGA", 60, 640, 480, 40000, 16, 114, 10, 32, 30, 3,
 	FB_SYNC_CLK_LAT_FALL,
 	FB_VMODE_NONINTERLACED,
 	0,},
@@ -88,6 +97,23 @@ static int lcdif_init(struct mxc_dispdrv_handle *disp,
 	return ret;
 }
 
+static int mxc_lcdif_enable(struct mxc_dispdrv_handle *disp, struct fb_info * fbi) {
+	struct mxc_lcd_platform_data *plat_data = mxc_dispdrv_getdata(disp);
+	if (gpio_is_valid(plat_data->enable_gpio)) {
+		dev_dbg(fbi->device, "%s\n", __func__);
+		gpio_set_value_cansleep(plat_data->enable_gpio, plat_data->gpio_flags & OF_GPIO_ACTIVE_LOW ? 0 : 1);
+	}
+	return 0;
+}
+
+static void mxc_lcdif_disable(struct mxc_dispdrv_handle *disp, struct fb_info * fbi) {
+	struct mxc_lcd_platform_data *plat_data = mxc_dispdrv_getdata(disp);
+	if (gpio_is_valid(plat_data->enable_gpio)) {
+		dev_dbg(fbi->device, "%s\n", __func__);
+		gpio_set_value_cansleep(plat_data->enable_gpio, plat_data->gpio_flags & OF_GPIO_ACTIVE_LOW ? 1 : 0);
+	}
+}
+
 void lcdif_deinit(struct mxc_dispdrv_handle *disp)
 {
 	/*TODO*/
@@ -97,6 +123,8 @@ static struct mxc_dispdrv_driver lcdif_drv = {
 	.name 	= DISPDRV_LCD,
 	.init 	= lcdif_init,
 	.deinit	= lcdif_deinit,
+	.enable = mxc_lcdif_enable,
+	.disable = mxc_lcdif_disable,
 };
 
 static int lcd_get_of_property(struct platform_device *pdev,
@@ -106,6 +134,7 @@ static int lcd_get_of_property(struct platform_device *pdev,
 	int err;
 	u32 ipu_id, disp_id;
 	const char *default_ifmt;
+	enum of_gpio_flags flags;
 
 	err = of_property_read_string(np, "default_ifmt", &default_ifmt);
 	if (err) {
@@ -125,6 +154,20 @@ static int lcd_get_of_property(struct platform_device *pdev,
 
 	plat_data->ipu_id = ipu_id;
 	plat_data->disp_id = disp_id;
+
+	plat_data->enable_gpio = of_get_named_gpio_flags(np, "enable_gpio", 0, &flags);
+	if (gpio_is_valid(plat_data->enable_gpio)) {
+		if ( devm_gpio_request_one(&pdev->dev, plat_data->enable_gpio,
+				flags & OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+				"lcd-enable") ) {
+			dev_err(&pdev->dev, "Unable to request gpio %d\n", plat_data->enable_gpio);
+			plat_data->enable_gpio = -EINVAL;
+		}
+		else {
+			plat_data->gpio_flags = flags;
+		}
+	}
+
 	if (!strncmp(default_ifmt, "RGB24", 5))
 		plat_data->default_ifmt = IPU_PIX_FMT_RGB24;
 	else if (!strncmp(default_ifmt, "BGR24", 5))
