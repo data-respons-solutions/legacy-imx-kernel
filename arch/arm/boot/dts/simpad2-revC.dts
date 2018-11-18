@@ -261,6 +261,7 @@
         model = "wm8960-audio";
         cpu-dai = <&ssi2>;
         audio-codec = <&codec>;
+		codec-master;
         audio-routing =
             "Headphone Jack", "HP_L",
             "Headphone Jack", "HP_R",
@@ -297,7 +298,7 @@
     flash: m25p80@0 {
         #address-cells = <1>;
         #size-cells = <1>;
-        compatible = "macronix,mx25l3205d";
+        compatible = "macronix,mx25l3205d", "jedec,spi-nor";
         spi-max-frequency = <20000000>;
         reg = <0>;
         partition@0 {
@@ -471,11 +472,12 @@
     status = "okay";
     
     codec: wm8960@1a {
-        compatible = "wlf,wm8960-lm";
+        compatible = "wlf,wm8960";
         reg = <0x1a>;
         clocks = <&clks IMX6QDL_CLK_CKO>;
         clock-names = "mclk";
         wlf,shared-lrclk;
+        wlf,capless;
        };
        
     mma8451@1c {

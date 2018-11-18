@@ -348,7 +348,7 @@
     flash: m25p80@0 {
         #address-cells = <1>;
         #size-cells = <1>;
-        compatible = "mx,mx25l3205d";
+		compatible = "macronix,mx25l3205d", "jedec,spi-nor";
         spi-max-frequency = <20000000>;
         reg = <0>;
         partition@0 {
