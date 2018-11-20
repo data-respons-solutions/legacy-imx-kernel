@@ -26,7 +26,7 @@
     };
 
     memory {
-        reg = <0x10000000 0x20000000>;
+        reg = <0x10000000 0x40000000>;
     };
 
 	chosen {
@@ -274,7 +274,7 @@
         iphone-jack;
         speaker-auto-switch;
         hp-det-gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
-        mic-det-gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
+        mic-det-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
     };
     
     simpad-plus-psy {
@@ -865,7 +865,6 @@
 };
 
 &usdhc3 {
-    compatible = "fsl,imx6sl-usdhc";
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_usdhc3>;
     bus-width = <8>;
