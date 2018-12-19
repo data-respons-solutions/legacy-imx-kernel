@@ -2725,6 +2725,13 @@ int gpiod_to_irq(const struct gpio_desc *desc)
 }
 EXPORT_SYMBOL_GPL(gpiod_to_irq);
 
+struct device *gpiod_to_dev(const struct gpio_desc *desc)
+{
+	return desc->dev;
+}
+EXPORT_SYMBOL_GPL(gpiod_to_dev);
+
+
 /**
  * gpiochip_lock_as_irq() - lock a GPIO to be used as IRQ
  * @chip: the chip the GPIO to lock belongs to
