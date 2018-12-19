@@ -1,0 +1,5 @@
+config CTGW_MCU
+	tristate "Enable cargotec gw SMC controller"
+	depends on I2C
+	help
+	  Bring in the multi-function SMC device
