@@ -33,6 +33,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
 #include <linux/of_net.h>
+#include <linux/of_gpio.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/system_misc.h>
@@ -315,9 +316,95 @@ static inline void imx6q_enet_init(void)
 		imx6q_enet_clk_sel();
 }
 
+static void __init imx6q_add_gpio(void)
+{
+	struct device_node *user_gpios, *it;
+	int ret, gpio_nr;
+	u32 val;
+	unsigned long flags;
+	enum of_gpio_flags of_flags;
+
+	user_gpios = of_find_node_by_name(NULL, "user-gpios");
+	if (user_gpios) {	/* Iterate nodes */
+		it = NULL;
+		while ((it = of_get_next_available_child(user_gpios, it))) {
+			gpio_nr = of_get_gpio_flags(it, 0, &of_flags);
+
+			if (!gpio_is_valid(gpio_nr)) {
+				pr_err("%s: Could not get gpio for %s\n", __func__, of_node_full_name(it));
+				continue;
+			}
+			if (of_property_read_u32(it, "value", &val) == 0)	{
+				flags = val ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
+			}
+			else
+				flags = GPIOF_DIR_IN;
+
+			flags |= GPIOF_EXPORT_DIR_CHANGEABLE;
+
+			ret = gpio_request_one(gpio_nr, flags, it->name);
+			if (ret < 0) {
+				pr_err("%s: Could not request gpio %d\n", __func__, gpio_nr);
+				continue;
+			}
+			pr_info("%s: Setting up gpio %s [%d], init=%d\n", __func__,
+					of_node_full_name(it), gpio_nr, val);
+		}
+		of_node_put(user_gpios);
+	}
+}
+static int __init imx6q_set_wdog_status(struct device_node *np, bool ok)
+{
+	struct property *status;
+	int avail = of_device_is_available(np);
+	pr_debug("%s: %s to %d\n", __func__, of_node_full_name(np), ok);
+	if ( (avail && ok) || (!avail && !ok) )
+		return 0;
+	status = kzalloc(sizeof(*status), GFP_KERNEL);
+	status->name = kstrdup("status", GFP_KERNEL);
+	status->value = kzalloc(20, GFP_KERNEL);
+	if (ok)
+		strcpy(status->value, "okay");
+	else
+		strcpy(status->value, "disabled");
+	status->length = strlen(status->value) + 1;
+
+	pr_info("%s: Setting status for %s to %s\n", __func__, of_node_full_name(np), (char*)status->value);
+	of_update_property(np, status);
+	return 0;
+}
+
+static struct device_node* __init imx6q_wdog_started(void)
+{
+	static void __iomem *wdog_base;
+	struct device_node *np = NULL;
+	u32 wdog_wcr;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx21-wdt");
+	if (np) {
+		wdog_base = of_iomap(np, 0);
+		wdog_wcr = __raw_readw(wdog_base);
+		if (wdog_wcr & 0x04) {
+			return np;
+		}
+		else {
+			np = of_find_compatible_node(np, NULL, "fsl,imx21-wdt");
+			if (np) {
+				wdog_base = of_iomap(np, 0);
+				wdog_wcr = __raw_readw(wdog_base);
+				if (wdog_wcr & 0x04) {
+					return np;
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
 static void __init imx6q_init_machine(void)
 {
 	struct device *parent;
+	struct device_node *np, *np2;
 
 	if (cpu_is_imx6q() && imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0)
 		imx_print_silicon_rev("i.MX6QP", IMX_CHIP_REVISION_1_0);
@@ -328,6 +415,20 @@ static void __init imx6q_init_machine(void)
 	parent = imx_soc_device_init();
 	if (parent == NULL)
 		pr_warn("failed to initialize soc device\n");
+	np = imx6q_wdog_started();
+
+	if (np) {
+		pr_info("%s: Found bootloader activated watchdog %s - adjusting DT\n", __func__, of_node_full_name(np));
+		imx6q_set_wdog_status(np, true);
+		np2 = of_find_compatible_node(NULL, NULL, "fsl,imx21-wdt");
+		if (np == np2)
+			np2 = of_find_compatible_node(np2, NULL, "fsl,imx21-wdt");
+		if  (np2 ) {
+			imx6q_set_wdog_status(np2, false);
+			of_node_put(np2);
+		}
+		of_node_put(np);
+	}
 
 	of_platform_default_populate(NULL, NULL, parent);
 
@@ -336,6 +437,7 @@ static void __init imx6q_init_machine(void)
 	imx6q_csi_mux_init();
 	cpu_is_imx6q() ?  imx6q_pm_init() : imx6dl_pm_init();
 	imx6q_axi_init();
+
 }
 
 #define OCOTP_CFG3			0x440
@@ -442,6 +544,7 @@ static void __init imx6q_init_late(void)
 		imx6q_opp_init();
 		platform_device_register(&imx6q_cpufreq_pdev);
 	}
+	imx6q_add_gpio();
 }
 
 static void __init imx6q_map_io(void)
