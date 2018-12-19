@@ -1,0 +1,32 @@
+/*
+ * Copyright DATA RESPONS AS
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+/dts-v1/;
+
+#include "imx6dl.dtsi"
+#include "cargotec-gw-revB-common.dtsi"
+
+/ {
+    model = "Cargotec GW board (rev B - duallite)";
+    compatible = "datarespons,laerdal2", "fsl,imx6dl";
+
+    memory {
+        reg = <0x10000000 0x20000000>;
+    };
+};
+
+&i2c4 {
+	status = "disabled";
+};
+
+&epdc {
+	status = "disabled";
+};
