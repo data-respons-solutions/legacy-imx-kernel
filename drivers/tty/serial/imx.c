@@ -251,6 +251,7 @@ struct imx_port {
 	bool			context_saved;
 #define DMA_TX_IS_WORKING 1
 	unsigned long		flags;
+	bool			nodma;
 };
 
 struct imx_port_ucrs {
@@ -1316,7 +1317,7 @@ static int imx_startup(struct uart_port *port)
 		udelay(1);
 
 	/* Can we enable the DMA support? */
-	if (is_imx6q_uart(sport) && !uart_console(port)
+	if (!sport->nodma && is_imx6q_uart(sport) && !uart_console(port)
 		&& !sport->dma_is_inited)
 		imx_uart_dma_init(sport);
 
@@ -2112,6 +2113,9 @@ static int serial_imx_probe_dt(struct imx_port *sport,
 
 	if (of_get_property(np, "rts-gpios", NULL))
 		sport->have_rtsgpio = 1;
+
+	if (of_get_property(np, "nodma", NULL))
+		sport->nodma = 1;
 
 	return 0;
 }
