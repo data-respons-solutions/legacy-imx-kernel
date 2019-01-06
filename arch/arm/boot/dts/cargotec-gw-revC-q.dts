@@ -16,7 +16,7 @@
 
 / {
     model = "Cargotec GW board (rev C - quad)";
-    compatible = "datarespons,laerdal2", "fsl,imx6q";
+    compatible = "fsl,imx6q";
 
     memory {
         reg = <0x10000000 0x20000000>;

@@ -15,6 +15,17 @@
 
 / {
 
+    aliases {
+        mmc0 = &usdhc3;
+        mmc1 = &usdhc4;
+		rtc0 = &rx8010_rtc;
+		rtc1 = &snvs_rtc;
+	};
+	
+	chosen {
+		stdout-path = &uart1;
+	};
+	
     regulators {
         compatible = "simple-bus";
 
@@ -349,6 +360,14 @@
 
 &gpc {
     fsl,ldo-bypass = <0>; /* use ldo-bypass, u-boot will check it and configure */
+};
+
+&usbphy1 {
+	tx-d-cal = <0x5>;
+};
+
+&usbphy2 {
+	tx-d-cal = <0x5>;
 };
 
 &wdog1 {
@@ -800,6 +819,18 @@
     };
 };
 
+&reg_arm {
+	/delete-property/ vin-supply;
+};
+
+&reg_pu {
+	/delete-property/ vin-supply;
+};
+
+&reg_soc {
+	/delete-property/ vin-supply;
+};
+
 &ldb {
     status = "disabled";
 };
@@ -896,7 +927,6 @@
 };
 
 &usdhc3 {
-    compatible = "fsl,imx6sl-usdhc";
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_usdhc3>;
     bus-width = <8>;

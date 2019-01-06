@@ -15,10 +15,16 @@
 
 / {
     aliases {
+        mmc0 = &usdhc3;
+        mmc1 = &usdhc4;
 		rtc0 = &smc;
 		rtc1 = &snvs_rtc;
 	};
-
+	
+	chosen {
+		stdout-path = &uart1;
+	};
+	
     regulators {
         compatible = "simple-bus";
 
@@ -45,7 +51,7 @@
         };
 
         reg_wwan: wwan_enable {
-		compatible = "regulator-fixed";
+			compatible = "regulator-fixed";
             regulator-name = "reg_wwan_enable";
             regulator-min-microvolt = <3300000>;
             regulator-max-microvolt = <3300000>;
@@ -303,6 +309,7 @@
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_ecspi2>;
     status = "okay";
+    nodma;
 
 
     adc: mcp3208@0 {
@@ -346,6 +353,14 @@
 
 &gpc {
     fsl,ldo-bypass = <0>; /* use ldo-bypass, u-boot will check it and configure */
+};
+
+&usbphy1 {
+	tx-d-cal = <0x5>;
+};
+
+&usbphy2 {
+	tx-d-cal = <0x5>;
 };
 
 &wdog1 {
@@ -792,6 +807,18 @@
     };
 };
 
+&reg_arm {
+	/delete-property/ vin-supply;
+};
+
+&reg_pu {
+	/delete-property/ vin-supply;
+};
+
+&reg_soc {
+	/delete-property/ vin-supply;
+};
+
 &ldb {
     status = "disabled";
 };
@@ -824,6 +851,7 @@
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_uart4>;
     status = "okay";
+    nodma;
 };
 
 
@@ -833,7 +861,8 @@
     fsl,uart-has-rtscts;
     /* fsl,dte-mode; */
     status = "okay";
-
+	nodma;
+	
     bluetooth {
 	compatible = "ti,wl1837-st";
 	enable-gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
@@ -852,6 +881,9 @@
     status = "okay";
     vbus-supply = <&swbst_reg>;
     disable-over-current;
+    srp-disable;
+	hnp-disable;
+	adp-disable;
     dr_mode = "host";
 };
 

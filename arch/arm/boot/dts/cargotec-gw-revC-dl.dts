@@ -16,7 +16,7 @@
 
 / {
     model = "Cargotec GW board (rev C - duallite)";
-    compatible = "datarespons,laerdal2", "fsl,imx6dl";
+    compatible = "fsl,imx6dl";
 
     memory {
         reg = <0x10000000 0x20000000>;
