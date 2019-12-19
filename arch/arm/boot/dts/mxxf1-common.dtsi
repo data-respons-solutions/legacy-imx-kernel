@@ -234,7 +234,7 @@
 flash: m25p80@0 {
         #address-cells = <1>;
         #size-cells = <1>;
-        compatible = "st,m25p32", "st,n25q032";
+        compatible = "st,n25q032", "jedec,spi-nor";
         spi-max-frequency = <20000000>;
         reg = <0>;
         partition@0 {
