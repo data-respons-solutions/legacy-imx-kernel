@@ -184,11 +184,13 @@
 			value = <1>;
 		};
 		
+		/*
 		gpio-phy-rst {
-			gpios = <&gpio1 25 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio1 25 GPIO_ACTIVE_LOW>;
 			status = "okay";
 			value = <1>;
 		};
+		*/
 		
 		gpio-touch-rst {
 			gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;
@@ -322,7 +324,7 @@
        arphy: ethernet-phy@0 {
            compatible = "ethernet-phy-ieee802.3-c22";
            reg = <0x0>;
-           max-speed = <100>;
+           /* max-speed = <100>; */
            interrupt-parent = <&gpio1>;
            interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
        };
@@ -733,21 +735,21 @@
 	enet {
 		pinctrl_enet_lm: enetgrp-lm2 {
 			fsl,pins = <
-				MX6QDL_PAD_ENET_MDIO__ENET_MDIO       0x1b0b0
-				MX6QDL_PAD_ENET_MDC__ENET_MDC         0x1b0b0
-				MX6QDL_PAD_RGMII_TXC__RGMII_TXC       0x1b0b0
-				MX6QDL_PAD_RGMII_TD0__RGMII_TD0       0x1b0b0
-				MX6QDL_PAD_RGMII_TD1__RGMII_TD1       0x1b0b0
-				MX6QDL_PAD_RGMII_TD2__RGMII_TD2       0x1b0b0
-				MX6QDL_PAD_RGMII_TD3__RGMII_TD3       0x1b0b0
-				MX6QDL_PAD_RGMII_TX_CTL__RGMII_TX_CTL 0x1b0b0
-				MX6QDL_PAD_ENET_REF_CLK__ENET_TX_CLK  0x40000000
-				MX6QDL_PAD_RGMII_RXC__RGMII_RXC       0x1b0b0
-				MX6QDL_PAD_RGMII_RD0__RGMII_RD0       0x1b0b0
-				MX6QDL_PAD_RGMII_RD1__RGMII_RD1       0x1b0b0
-				MX6QDL_PAD_RGMII_RD2__RGMII_RD2       0x1b0b0
-				MX6QDL_PAD_RGMII_RD3__RGMII_RD3       0x1b0b0
-				MX6QDL_PAD_RGMII_RX_CTL__RGMII_RX_CTL 0x1b0b0
+				MX6QDL_PAD_ENET_MDIO__ENET_MDIO       0x1b030
+				MX6QDL_PAD_ENET_MDC__ENET_MDC         0x1b030
+				MX6QDL_PAD_RGMII_TXC__RGMII_TXC       0x1b030
+				MX6QDL_PAD_RGMII_TD0__RGMII_TD0       0x1b030
+				MX6QDL_PAD_RGMII_TD1__RGMII_TD1       0x1b030
+				MX6QDL_PAD_RGMII_TD2__RGMII_TD2       0x1b030
+				MX6QDL_PAD_RGMII_TD3__RGMII_TD3       0x1b030
+				MX6QDL_PAD_RGMII_TX_CTL__RGMII_TX_CTL 0x1b030
+				MX6QDL_PAD_ENET_REF_CLK__ENET_TX_CLK  0x12030
+				MX6QDL_PAD_RGMII_RXC__RGMII_RXC       0x1b030
+				MX6QDL_PAD_RGMII_RD0__RGMII_RD0       0x1b030
+				MX6QDL_PAD_RGMII_RD1__RGMII_RD1       0x1b030
+				MX6QDL_PAD_RGMII_RD2__RGMII_RD2       0x1b030
+				MX6QDL_PAD_RGMII_RD3__RGMII_RD3       0x1b030
+				MX6QDL_PAD_RGMII_RX_CTL__RGMII_RX_CTL 0x1b030
 			>;
 		};
 	};
