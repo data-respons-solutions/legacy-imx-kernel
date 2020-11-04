@@ -63,13 +63,12 @@
     pinctrl-0 = <&pinctrl_i2c3>;
     status = "okay";
 
-    egalax_ts@04 {
-        compatible = "eeti,egalax_ts";
-        reg = <0x04>;
+    egalax_ts@2a {
+        compatible = "eeti,egalax_i2c";
+        reg = <0x2a>;
         interrupt-parent = <&gpio6>;
-        interrupts = <8 2>;
-        wakeup-gpios = <&gpio6 8 0>;
-        disable-suspend = <1>;
+        interrupts = <8 8>;
+        int-gpios = <&gpio6 8 0>;
         };
         
     main_rtc: rtc@68 {

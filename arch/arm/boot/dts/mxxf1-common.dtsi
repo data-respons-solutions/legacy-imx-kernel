@@ -408,33 +408,6 @@ flash: m25p80@0 {
     status = "disabled";
 };
 
-&i2c3 {
-    clock-frequency = <100000>;
-    pinctrl-names = "default";
-    pinctrl-0 = <&pinctrl_i2c3>;
-    status = "okay";
-
-    egalax_ts@04 {
-        compatible = "eeti,egalax_ts";
-        reg = <0x04>;
-        interrupt-parent = <&gpio6>;
-        interrupts = <8 2>;
-        wakeup-gpios = <&gpio6 8 0>;
-        disable-suspend = <1>;
-        };
-        
-    main_rtc: rtc@68 {
-        compatible = "stm,m41t82";
-        reg = <0x68>;
-        };
-
-    adc7417@28 {
-        compatible = "ad,ad7417";
-        reg = <0x28>;
-        };
-};
-
-
 &iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog_1>;
