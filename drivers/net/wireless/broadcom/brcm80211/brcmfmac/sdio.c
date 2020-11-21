@@ -113,6 +113,10 @@ struct rte_console {
 #include "debug.h"
 #include "tracepoint.h"
 
+static int brcmf_sdiod_no_bus_sleep = 1;
+module_param_named(no_bus_sleep, brcmf_sdiod_no_bus_sleep, int, 0);
+MODULE_PARM_DESC(no_bus_sleep, "No bus sleep allowed [SDIO]");
+
 #define TXQLEN		2048	/* bulk tx queue length */
 #define TXHI		(TXQLEN - 256)	/* turn on flow control above TXHI */
 #define TXLOW		(TXHI - 256)	/* turn off flow control below TXLOW */
@@ -959,6 +963,10 @@ brcmf_sdio_bus_sleep(struct brcmf_sdio *bus, bool sleep, bool pendok)
 		  (sleep ? "SLEEP" : "WAKE"),
 		  (bus->sleeping ? "SLEEP" : "WAKE"));
 
+	if (brcmf_sdiod_no_bus_sleep && sleep) {
+		brcmf_dbg(SDIO, "Sleep disabled\n");
+		return 0;
+	}
 	/* If SR is enabled control bus state with KSO */
 	if (bus->sr_enabled) {
 		/* Done if we're already in the requested state */
