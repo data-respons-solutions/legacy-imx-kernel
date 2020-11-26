@@ -718,4 +718,15 @@ config CHARGER_WILCO
 	  information can be found in
 	  Documentation/ABI/testing/sysfs-class-power-wilco
 
+config LINKBOX_PLUS_PSY
+    tristate "Linkbox Plus Power Supply"
+    depends on I2C && GPIOLIB
+    help
+        Say Y to enable Linkbox Plus PSY
+
+config SIMPAD_PLUS_PSY
+    tristate "Simpad Plus Power Supply"
+    depends on GPIOLIB
+    help
+        Say Y to enable Simpad Plus PSY
 endif # POWER_SUPPLY

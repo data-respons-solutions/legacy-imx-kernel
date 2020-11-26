@@ -867,6 +867,7 @@ static struct thermal_zone_device_ops psy_tzd_ops = {
 static int psy_register_thermal(struct power_supply *psy)
 {
 	int i;
+	char tname[THERMAL_NAME_LENGTH+1];
 
 	if (psy->desc->no_thermal)
 		return 0;
@@ -874,7 +875,8 @@ static int psy_register_thermal(struct power_supply *psy)
 	/* Register battery zone device psy reports temperature */
 	for (i = 0; i < psy->desc->num_properties; i++) {
 		if (psy->desc->properties[i] == POWER_SUPPLY_PROP_TEMP) {
-			psy->tzd = thermal_zone_device_register(psy->desc->name,
+			strlcpy(tname, psy->desc->name, THERMAL_NAME_LENGTH);
+			psy->tzd = thermal_zone_device_register(tname,
 					0, 0, psy, &psy_tzd_ops, NULL, 0, 0);
 			return PTR_ERR_OR_ZERO(psy->tzd);
 		}
