@@ -1306,6 +1306,10 @@ static int spi_imx_sdma_init(struct device *dev, struct spi_imx_data *spi_imx,
 {
 	int ret;
 
+	/* use pio mode for i.mx6dl chip TKT238285 */
+	if (of_machine_is_compatible("fsl,imx6dl"))
+		return 0;
+
 	spi_imx->wml = spi_imx->devtype_data->fifo_size / 2;
 
 	/* Prepare for TX DMA: */
@@ -1652,6 +1656,11 @@ static int spi_imx_probe(struct platform_device *pdev)
 	if ((ret < 0) || (spi_drctl >= 0x3)) {
 		/* '11' is reserved */
 		spi_drctl = 0;
+	}
+
+	if (of_property_read_bool(np, "nodma")) {
+		use_dma = false;
+		dev_info(&pdev->dev, "Disabled DMA from DT\n");
 	}
 
 	platform_set_drvdata(pdev, master);
