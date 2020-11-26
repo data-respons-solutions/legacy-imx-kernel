@@ -19,7 +19,8 @@
 #define FSL_ESAI_FORMATS	(SNDRV_PCM_FMTBIT_S8 | \
 				SNDRV_PCM_FMTBIT_S16_LE | \
 				SNDRV_PCM_FMTBIT_S20_3LE | \
-				SNDRV_PCM_FMTBIT_S24_LE)
+				SNDRV_PCM_FMTBIT_S24_LE | \
+				SNDRV_PCM_FMTBIT_S32_LE)
 
 /**
  * fsl_esai_soc_data: soc specific data
