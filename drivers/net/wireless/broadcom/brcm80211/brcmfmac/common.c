@@ -257,7 +257,7 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 	if (bus->chip)
 		brcmf_chip_name(bus->chip, bus->chiprev,
 				ri->chipname, sizeof(ri->chipname));
-
+#if 0
 	/* Do any CLM downloading */
 	if (brcmf_chip_has_clm_blob(bus->chip)) {
 		err = brcmf_c_process_clm_blob(ifp);
@@ -266,7 +266,7 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 			goto done;
 		}
 	}
-
+#endif
 	/* query for 'ver' to get version info from firmware */
 	memset(buf, 0, sizeof(buf));
 	err = brcmf_fil_iovar_data_get(ifp, "ver", buf, sizeof(buf));
