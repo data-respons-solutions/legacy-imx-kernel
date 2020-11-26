@@ -59,3 +59,5 @@ obj-y				+= cardreader/
 obj-$(CONFIG_PVPANIC)   	+= pvpanic.o
 obj-$(CONFIG_HABANA_AI)		+= habanalabs/
 obj-$(CONFIG_XILINX_SDFEC)	+= xilinx_sdfec.o
+obj-$(CONFIG_MODULATED_PWM) += modulated_pwm.o
+obj-$(CONFIG_OF_FUNCTION_PINMUX) += dt-function-mux.o

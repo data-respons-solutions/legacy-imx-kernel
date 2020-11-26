@@ -486,6 +486,19 @@ config PVPANIC
 	  a paravirtualized device provided by QEMU; it lets a virtual machine
 	  (guest) communicate panic events to the host.
 
+config MODULATED_PWM
+	tristate "Modulated PWM"
+	default n
+	help
+		Modulated PWM with 8 bit resolution
+
+config OF_FUNCTION_PINMUX
+	tristate "Function Pinmux"
+	default n
+	depends on OF && PINMUX && PINCTRL
+	help
+		Function multiplexer for pads
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
