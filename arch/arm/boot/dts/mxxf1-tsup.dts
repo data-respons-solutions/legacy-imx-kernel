@@ -1,7 +1,5 @@
 /*
  * Copyright 2015 DATA RESPONS AS
- * Copyright 2012 Freescale Semiconductor, Inc.
- * Copyright 2011 Linaro Ltd.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -18,7 +16,7 @@
 
 / {
     model = "DR imx6q Maritime Computer";
-    compatible = "datarespons,mxxf1", "fsl,imx6q";
+    compatible = "fsl,imx6q";
 
     backlight  {
         compatible = "pwm-backlight";
@@ -63,12 +61,12 @@
     pinctrl-0 = <&pinctrl_i2c3>;
     status = "okay";
 
-    egalax_ts@4 {
-        compatible = "eeti,egalax_ts";
-        reg = <0x04>;
+    egalax_ts@2a {
+        compatible = "eeti,egalax_i2c";
+        reg = <0x2a>;
         interrupt-parent = <&gpio6>;
-        interrupts = <8 IRQ_TYPE_EDGE_FALLING>;
-        wakeup-gpios = <&gpio6 8 0>;
+        interrupts = <8 IRQ_TYPE_LEVEL_LOW>;
+        int-gpios = <&gpio6 8 0>;
         disable-suspend = <1>;
         };
         
