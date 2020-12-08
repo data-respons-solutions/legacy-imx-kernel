@@ -1,7 +1,5 @@
 /*
  * Copyright 2015 DATA RESPONS AS
- * Copyright 2012 Freescale Semiconductor, Inc.
- * Copyright 2011 Linaro Ltd.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -18,11 +16,11 @@
 
 / {
     model = "DR imx6q Maritime Computer";
-    compatible = "datarespons,laerdal2", "fsl,imx6q";
+    compatible = "fsl,imx6q";
 
     backlight  {
         compatible = "pwm-backlight";
-        pwms = <&pwm1 0 50000>;
+        pwms = <&pwm1 0 500000>;
         brightness-levels = < 0 1 2 3 4 5 6 8  11 16  23  32 48
                               64 81 100 121 144 169 196 225
                               256 289 324 361 400 441 484 529
@@ -31,6 +29,8 @@
                               1600 1681 1764 1849 1936 2025 2116 2209 >;
         default-brightness-level = <32>;
         enable-gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;
+        power-supply = <&reg_5v>;
+        status = "okay";
     };
 
     mxcfb1: fb@0 {
@@ -48,7 +48,7 @@
         disp_dev = "hdmi";
         interface_pix_fmt = "RGB24";
         mode_str ="1920x1080M@60";
-        default_bpp = <32>;
+        default_bpp = <24>;
         int_clk = <0>;
         late_init = <0>;
         status = "disabled";
@@ -61,12 +61,12 @@
     pinctrl-0 = <&pinctrl_i2c3>;
     status = "okay";
 
-    egalax_ts@4 {
-        compatible = "eeti,egalax_ts";
-        reg = <0x04>;
+    egalax_ts@2a {
+        compatible = "eeti,egalax_i2c";
+        reg = <0x2a>;
         interrupt-parent = <&gpio6>;
-        interrupts = <8 IRQ_TYPE_EDGE_FALLING>;
-        wakeup-gpios = <&gpio6 8 0>;
+        interrupts = <8 IRQ_TYPE_LEVEL_LOW>;
+        int-gpios = <&gpio6 8 0>;
         disable-suspend = <1>;
         };
         
@@ -89,7 +89,7 @@
         fsl,data-width = <24>;
         status = "okay";
         primary;
-        crtc = "ipu1-di0";
+        crtc = "ipu2-di0";
 
         display-timings {
             native-mode = <&timing0>;
@@ -107,3 +107,8 @@
         };
     };
 };
+
+&pwm1 {
+    status = "okay";
+};
+
