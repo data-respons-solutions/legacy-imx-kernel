@@ -486,6 +486,26 @@ static void __init imx6q_add_gpio(void)
 	}
 }
 
+static int imx_get_boot_mode_reg(u32* cfg, u32* bmr)
+{
+	struct device_node* np;
+	void __iomem* src_base;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx51-src");
+	if (!np)
+		return 0;
+	src_base = of_iomap(np, 0);
+	WARN_ON(!src_base);
+	if (!src_base)
+		return -ENODEV;
+
+	*cfg = readl_relaxed(src_base + 0x04);
+	*bmr = readl_relaxed(src_base + 0x1c);
+	pr_info("%s: boot mode 0x%08x\n", __func__, *bmr);
+	pr_info("%s: cfg reg 0x%08x\n", __func__, *cfg);
+	return 0;
+}
+
 static int __init imx6q_set_wdog_status(struct device_node* np, bool ok)
 {
 	struct property* status;
@@ -538,6 +558,7 @@ static void __init imx6q_init_machine(void)
 {
 	struct device *parent;
 	struct device_node* np, * np2;
+	u32 sbmr1, sbmr2;
 
 	imx_print_silicon_rev(cpu_is_imx6dl() ? "i.MX6DL" : "i.MX6Q",
 			      imx_get_soc_revision());
@@ -569,6 +590,7 @@ static void __init imx6q_init_machine(void)
 	imx_anatop_init();
 	imx6q_csi_mux_init();
 	cpu_is_imx6q() ?  imx6q_pm_init() : imx6dl_pm_init();
+	imx_get_boot_mode_reg(&sbmr1, &sbmr2);
 }
 
 #define OCOTP_CFG3			0x440
